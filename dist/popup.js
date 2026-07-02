@@ -472,17 +472,29 @@
     `
     }
   ];
-  var SUPPORTED_ACTIVITY_TYPES = /* @__PURE__ */ new Set([
-    "CoursePlayActivity",
-    "CourseSessionActivity",
-    "COURSE_PLAY",
-    "MapMyBagActivity",
-    "MapMyBagSessionActivity",
-    "BagMappingActivity",
-    "MAP_MY_BAG"
-  ]);
+  var SUPPORTED_ACTIVITY_TYPES = {
+    SessionActivity: true,
+    CoursePlayActivity: true,
+    CourseSessionActivity: true,
+    COURSE_PLAY: true,
+    MapMyBagActivity: true,
+    MapMyBagSessionActivity: true,
+    BagMappingActivity: true,
+    MAP_MY_BAG: true,
+    VirtualGolfActivity: true,
+    VirtualGolfSessionActivity: true,
+    VIRTUAL_GOLF: true,
+    VirtualRangeSessionActivity: true,
+    VIRTUAL_RANGE: true,
+    ShotAnalysisSessionActivity: true,
+    SHOT_ANALYSIS: true,
+    CombineTestActivity: true,
+    COMBINE_TEST: true,
+    RangeFindMyDistanceActivity: true,
+    FIND_MY_DISTANCE: true
+  };
   function isSupportedPortalActivityType(type) {
-    return type !== null && SUPPORTED_ACTIVITY_TYPES.has(type);
+    return type !== null && type in SUPPORTED_ACTIVITY_TYPES;
   }
   function getActivityType(record) {
     if (typeof record.__typename === "string") return record.__typename;
@@ -741,6 +753,18 @@
     };
   }
   var IMPORT_SESSION_FALLBACK_QUERIES = [
+    flatStrokeActivityQuery("SessionActivity"),
+    groupedStrokeActivityQuery("SessionActivity"),
+    flatStrokeActivityQuery("ShotAnalysisSessionActivity"),
+    groupedStrokeActivityQuery("ShotAnalysisSessionActivity"),
+    flatStrokeActivityQuery("VirtualRangeSessionActivity"),
+    groupedStrokeActivityQuery("VirtualRangeSessionActivity"),
+    flatStrokeActivityQuery("CombineTestActivity"),
+    groupedStrokeActivityQuery("CombineTestActivity"),
+    flatStrokeActivityQuery("RangeFindMyDistanceActivity"),
+    groupedStrokeActivityQuery("RangeFindMyDistanceActivity"),
+    proBallActivityQuery("RangeFindMyDistanceActivity"),
+    groupedProBallActivityQuery("RangeFindMyDistanceActivity"),
     scorecardShotActivityQuery("CoursePlayActivity", "NORMALIZED_MEASUREMENT"),
     scorecardShotActivityQuery("CoursePlayActivity", "MEASUREMENT"),
     scorecardShotActivityQuery("CoursePlayActivity", "PRO_BALL_MEASUREMENT"),
@@ -1450,15 +1474,33 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   }
   function getPortalActivityDisplayLabel(type) {
     switch (type) {
+      case "SessionActivity":
+        return "Shot analysis";
       case "CoursePlayActivity":
       case "CourseSessionActivity":
       case "COURSE_PLAY":
         return "Course play";
+      case "VirtualGolfActivity":
+      case "VirtualGolfSessionActivity":
+      case "VIRTUAL_GOLF":
+        return "Virtual golf";
       case "MapMyBagActivity":
       case "MapMyBagSessionActivity":
       case "BagMappingActivity":
       case "MAP_MY_BAG":
         return "Map My Bag";
+      case "VirtualRangeSessionActivity":
+      case "VIRTUAL_RANGE":
+        return "Virtual range";
+      case "ShotAnalysisSessionActivity":
+      case "SHOT_ANALYSIS":
+        return "Shot analysis";
+      case "CombineTestActivity":
+      case "COMBINE_TEST":
+        return "Combine test";
+      case "RangeFindMyDistanceActivity":
+      case "FIND_MY_DISTANCE":
+        return "Find My Distance";
       default:
         return type ?? "Activity";
     }

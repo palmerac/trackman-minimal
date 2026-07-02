@@ -431,7 +431,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
 
   // src/shared/import_types.ts
   function isSupportedPortalActivityType(type) {
-    return type !== null && SUPPORTED_ACTIVITY_TYPES.has(type);
+    return type !== null && type in SUPPORTED_ACTIVITY_TYPES;
   }
   function flatStrokeActivityQuery(typeName) {
     return {
@@ -722,15 +722,27 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     `
         }
       ];
-      SUPPORTED_ACTIVITY_TYPES = /* @__PURE__ */ new Set([
-        "CoursePlayActivity",
-        "CourseSessionActivity",
-        "COURSE_PLAY",
-        "MapMyBagActivity",
-        "MapMyBagSessionActivity",
-        "BagMappingActivity",
-        "MAP_MY_BAG"
-      ]);
+      SUPPORTED_ACTIVITY_TYPES = {
+        SessionActivity: true,
+        CoursePlayActivity: true,
+        CourseSessionActivity: true,
+        COURSE_PLAY: true,
+        MapMyBagActivity: true,
+        MapMyBagSessionActivity: true,
+        BagMappingActivity: true,
+        MAP_MY_BAG: true,
+        VirtualGolfActivity: true,
+        VirtualGolfSessionActivity: true,
+        VIRTUAL_GOLF: true,
+        VirtualRangeSessionActivity: true,
+        VIRTUAL_RANGE: true,
+        ShotAnalysisSessionActivity: true,
+        SHOT_ANALYSIS: true,
+        CombineTestActivity: true,
+        COMBINE_TEST: true,
+        RangeFindMyDistanceActivity: true,
+        FIND_MY_DISTANCE: true
+      };
       STROKE_MEASUREMENT_FIELDS = `
   clubSpeed ballSpeed smashFactor attackAngle clubPath faceAngle
   faceToPath swingDirection swingPlane dynamicLoft spinRate spinAxis spinLoft
@@ -785,6 +797,18 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   }
 `;
       IMPORT_SESSION_FALLBACK_QUERIES = [
+        flatStrokeActivityQuery("SessionActivity"),
+        groupedStrokeActivityQuery("SessionActivity"),
+        flatStrokeActivityQuery("ShotAnalysisSessionActivity"),
+        groupedStrokeActivityQuery("ShotAnalysisSessionActivity"),
+        flatStrokeActivityQuery("VirtualRangeSessionActivity"),
+        groupedStrokeActivityQuery("VirtualRangeSessionActivity"),
+        flatStrokeActivityQuery("CombineTestActivity"),
+        groupedStrokeActivityQuery("CombineTestActivity"),
+        flatStrokeActivityQuery("RangeFindMyDistanceActivity"),
+        groupedStrokeActivityQuery("RangeFindMyDistanceActivity"),
+        proBallActivityQuery("RangeFindMyDistanceActivity"),
+        groupedProBallActivityQuery("RangeFindMyDistanceActivity"),
         scorecardShotActivityQuery("CoursePlayActivity", "NORMALIZED_MEASUREMENT"),
         scorecardShotActivityQuery("CoursePlayActivity", "MEASUREMENT"),
         scorecardShotActivityQuery("CoursePlayActivity", "PRO_BALL_MEASUREMENT"),

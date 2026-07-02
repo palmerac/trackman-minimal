@@ -430,6 +430,18 @@
     };
   }
   var IMPORT_SESSION_FALLBACK_QUERIES = [
+    flatStrokeActivityQuery("SessionActivity"),
+    groupedStrokeActivityQuery("SessionActivity"),
+    flatStrokeActivityQuery("ShotAnalysisSessionActivity"),
+    groupedStrokeActivityQuery("ShotAnalysisSessionActivity"),
+    flatStrokeActivityQuery("VirtualRangeSessionActivity"),
+    groupedStrokeActivityQuery("VirtualRangeSessionActivity"),
+    flatStrokeActivityQuery("CombineTestActivity"),
+    groupedStrokeActivityQuery("CombineTestActivity"),
+    flatStrokeActivityQuery("RangeFindMyDistanceActivity"),
+    groupedStrokeActivityQuery("RangeFindMyDistanceActivity"),
+    proBallActivityQuery("RangeFindMyDistanceActivity"),
+    groupedProBallActivityQuery("RangeFindMyDistanceActivity"),
     scorecardShotActivityQuery("CoursePlayActivity", "NORMALIZED_MEASUREMENT"),
     scorecardShotActivityQuery("CoursePlayActivity", "MEASUREMENT"),
     scorecardShotActivityQuery("CoursePlayActivity", "PRO_BALL_MEASUREMENT"),

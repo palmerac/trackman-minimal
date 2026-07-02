@@ -34,8 +34,8 @@ const activities: ActivitySummary[] = [
     id: "activity-unsupported",
     date: "2026-06-03",
     strokeCount: 9,
-    type: "VirtualGolfActivity",
-    courseName: "Virtual Links",
+    type: "PracticeActivity",
+    courseName: "Unsupported bay",
   },
   {
     id: "activity-missing-type",

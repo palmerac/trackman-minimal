@@ -11,6 +11,7 @@ import { validatePortalGraphQLRequest } from "../src/shared/portal_graphql_allow
 describe("archive portal query and unsupported-activity contracts", () => {
   it("recognizes exactly the activity families the archive exporter is allowed to fetch", () => {
     expect([
+      "SessionActivity",
       "CoursePlayActivity",
       "CourseSessionActivity",
       "COURSE_PLAY",
@@ -18,14 +19,23 @@ describe("archive portal query and unsupported-activity contracts", () => {
       "MapMyBagSessionActivity",
       "BagMappingActivity",
       "MAP_MY_BAG",
+      "VirtualGolfActivity",
+      "VirtualGolfSessionActivity",
+      "VIRTUAL_GOLF",
+      "VirtualRangeSessionActivity",
+      "VIRTUAL_RANGE",
+      "ShotAnalysisSessionActivity",
+      "SHOT_ANALYSIS",
+      "CombineTestActivity",
+      "COMBINE_TEST",
+      "RangeFindMyDistanceActivity",
+      "FIND_MY_DISTANCE",
     ].every(isSupportedPortalActivityType)).toBe(true);
 
     expect([
       null,
-      "VirtualGolfActivity",
-      "VirtualGolfSessionActivity",
-      "RangeFindMyDistanceActivity",
       "PracticeActivity",
+      "PuttingSessionActivity",
       "",
     ].some(isSupportedPortalActivityType)).toBe(false);
   });
@@ -51,15 +61,29 @@ describe("archive portal query and unsupported-activity contracts", () => {
               course: { displayName: "Range Bay" },
             },
             {
-              id: "unsupported-virtual",
+              id: "supported-virtual",
               type: "VirtualGolfActivity",
               kind: "VirtualGolfActivity",
               date: "2026-06-03",
               strokeCount: 9,
             },
             {
-              id: "missing-type",
+              id: "supported-shot-analysis",
+              type: "ShotAnalysisSessionActivity",
+              kind: "SHOT_ANALYSIS",
               date: "2026-06-04",
+              strokeCount: 11,
+            },
+            {
+              id: "supported-range",
+              type: "RangeFindMyDistanceActivity",
+              kind: "FIND_MY_DISTANCE",
+              date: "2026-06-05",
+              strokeCount: 6,
+            },
+            {
+              id: "missing-type",
+              date: "2026-06-06",
               strokeCount: 7,
             },
           ],
@@ -81,6 +105,27 @@ describe("archive portal query and unsupported-activity contracts", () => {
         date: "2026-06-02",
         strokeCount: 8,
         courseName: "Range Bay",
+      },
+      {
+        id: "supported-virtual",
+        type: "VirtualGolfActivity",
+        date: "2026-06-03",
+        strokeCount: 9,
+        courseName: null,
+      },
+      {
+        id: "supported-shot-analysis",
+        type: "ShotAnalysisSessionActivity",
+        date: "2026-06-04",
+        strokeCount: 11,
+        courseName: null,
+      },
+      {
+        id: "supported-range",
+        type: "RangeFindMyDistanceActivity",
+        date: "2026-06-05",
+        strokeCount: 6,
+        courseName: null,
       },
     ]);
   });

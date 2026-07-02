@@ -63,15 +63,33 @@ export function filterActivities(activities: ActivitySummary[], typeFilter: stri
 
 export function getPortalActivityDisplayLabel(type: string | null): string {
   switch (type) {
+    case "SessionActivity":
+      return "Shot analysis";
     case "CoursePlayActivity":
     case "CourseSessionActivity":
     case "COURSE_PLAY":
       return "Course play";
+    case "VirtualGolfActivity":
+    case "VirtualGolfSessionActivity":
+    case "VIRTUAL_GOLF":
+      return "Virtual golf";
     case "MapMyBagActivity":
     case "MapMyBagSessionActivity":
     case "BagMappingActivity":
     case "MAP_MY_BAG":
       return "Map My Bag";
+    case "VirtualRangeSessionActivity":
+    case "VIRTUAL_RANGE":
+      return "Virtual range";
+    case "ShotAnalysisSessionActivity":
+    case "SHOT_ANALYSIS":
+      return "Shot analysis";
+    case "CombineTestActivity":
+    case "COMBINE_TEST":
+      return "Combine test";
+    case "RangeFindMyDistanceActivity":
+    case "FIND_MY_DISTANCE":
+      return "Find My Distance";
     default:
       return type ?? "Activity";
   }
