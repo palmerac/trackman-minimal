@@ -8,6 +8,7 @@ export const RUNTIME_MESSAGE_TYPES = {
   EXPORT_CSV_REQUEST: "EXPORT_CSV_REQUEST",
   SAVE_IMPORTED_SESSION: "SAVE_IMPORTED_SESSION",
   SAVE_BULK_IMPORTED_SESSION: "SAVE_BULK_IMPORTED_SESSION",
+  SAVE_ARCHIVE_EXPORTED_SESSION: "SAVE_ARCHIVE_EXPORTED_SESSION",
   PORTAL_GRAPHQL_FETCH: "PORTAL_GRAPHQL_FETCH",
   HISTORY_ERROR: "HISTORY_ERROR",
   DATA_UPDATED: "DATA_UPDATED",
@@ -49,6 +50,13 @@ export interface SaveBulkImportedSessionRequest {
   activityId: string;
 }
 
+export interface SaveArchiveExportedSessionRequest {
+  type: typeof RUNTIME_MESSAGE_TYPES.SAVE_ARCHIVE_EXPORTED_SESSION;
+  jobId: string;
+  graphqlPayloads: ImportedSessionGraphQLData[];
+  activityId: string;
+}
+
 export interface PortalGraphQLFetchRequest {
   type: typeof RUNTIME_MESSAGE_TYPES.PORTAL_GRAPHQL_FETCH;
   query: string;
@@ -60,6 +68,7 @@ export type RuntimeRequestMessage =
   | ExportCsvRequest
   | SaveImportedSessionRequest
   | SaveBulkImportedSessionRequest
+  | SaveArchiveExportedSessionRequest
   | PortalGraphQLFetchRequest;
 
 export interface TrackmanShotDataWindowMessage {

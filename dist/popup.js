@@ -124,7 +124,8 @@
     INCLUDE_AVERAGES: "includeAverages",
     SESSION_HISTORY: "sessionHistory",
     IMPORT_STATUS: "importStatus",
-    BULK_IMPORT_STATUS: "bulkImportStatus"
+    BULK_IMPORT_STATUS: "bulkImportStatus",
+    PORTAL_ARCHIVE_EXPORT_STATUS: "portalArchiveExportStatus"
   };
 
   // src/shared/unit_normalization.ts
@@ -1469,6 +1470,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     EXPORT_CSV_REQUEST: "EXPORT_CSV_REQUEST",
     SAVE_IMPORTED_SESSION: "SAVE_IMPORTED_SESSION",
     SAVE_BULK_IMPORTED_SESSION: "SAVE_BULK_IMPORTED_SESSION",
+    SAVE_ARCHIVE_EXPORTED_SESSION: "SAVE_ARCHIVE_EXPORTED_SESSION",
     PORTAL_GRAPHQL_FETCH: "PORTAL_GRAPHQL_FETCH",
     HISTORY_ERROR: "HISTORY_ERROR",
     DATA_UPDATED: "DATA_UPDATED"

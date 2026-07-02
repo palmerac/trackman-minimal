@@ -10,6 +10,7 @@ import { saveSessionToHistory, getHistoryErrorMessage } from "../shared/history"
 import { parsePortalActivity } from "../shared/portal_parser";
 import type { ImportStatus } from "../shared/import_types";
 import { putBulkImportedSession } from "../shared/bulk_import_store";
+import { putArchiveExportSession } from "../shared/archive_export_store";
 import {
   RUNTIME_MESSAGE_TYPES,
   isAllowedReportRuntimeSender,
@@ -204,6 +205,45 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequestMessage, sender, se
       } catch (err) {
         console.error("TrackPull: Bulk import item failed:", err);
         sendResponse({ success: false, error: "Import failed — try again" });
+      }
+    })();
+
+    return true;
+  }
+
+  if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_ARCHIVE_EXPORTED_SESSION) {
+    const { jobId, activityId, graphqlPayloads } = message;
+
+    (async () => {
+      try {
+        const firstError = graphqlPayloads.find((payload) => payload.errors && payload.errors.length > 0)?.errors?.[0];
+        const hasPayloadWithoutErrors = graphqlPayloads.some((payload) => !payload.errors || payload.errors.length === 0);
+
+        if (firstError && !hasPayloadWithoutErrors) {
+          sendResponse({ success: false, error: firstError.message });
+          return;
+        }
+
+        const session = parseImportedSession(graphqlPayloads);
+        if (!session) {
+          sendResponse({ success: false, error: "No shot data found for this activity" });
+          return;
+        }
+
+        await putArchiveExportSession(jobId, activityId, session);
+
+        const shotCount = session.club_groups.reduce(
+          (total, club) => total + club.shots.length,
+          0
+        );
+        sendResponse({
+          success: true,
+          reportId: session.report_id,
+          shotCount,
+        });
+      } catch (err) {
+        console.error("TrackPull: Archive export item failed:", err);
+        sendResponse({ success: false, error: "Archive export failed — try again" });
       }
     })();
 

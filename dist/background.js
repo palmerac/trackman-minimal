@@ -183,7 +183,8 @@
         INCLUDE_AVERAGES: "includeAverages",
         SESSION_HISTORY: "sessionHistory",
         IMPORT_STATUS: "importStatus",
-        BULK_IMPORT_STATUS: "bulkImportStatus"
+        BULK_IMPORT_STATUS: "bulkImportStatus",
+        PORTAL_ARCHIVE_EXPORT_STATUS: "portalArchiveExportStatus"
       };
     }
   });
@@ -760,6 +761,86 @@
     }
   });
 
+  // src/shared/archive_export_store.ts
+  function createSnapshot3(session) {
+    const { raw_api_data: _rawApiData, ...snapshot } = session;
+    return snapshot;
+  }
+  function openArchiveExportDb() {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    const request = indexedDB.open(DB_NAME2, DB_VERSION2);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(JOB_STORE)) {
+        db.createObjectStore(JOB_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(ITEM_STORE)) {
+        const store = db.createObjectStore(ITEM_STORE, { keyPath: "key" });
+        store.createIndex(JOB_INDEX2, JOB_INDEX2, { unique: false });
+        store.createIndex(ACTIVITY_INDEX, ACTIVITY_INDEX, { unique: false });
+        store.createIndex(STATUS_INDEX, STATUS_INDEX, { unique: false });
+      }
+      if (!db.objectStoreNames.contains(SESSION_STORE2)) {
+        const store = db.createObjectStore(SESSION_STORE2, { keyPath: "key" });
+        store.createIndex(JOB_INDEX2, JOB_INDEX2, { unique: false });
+        store.createIndex(ACTIVITY_INDEX, ACTIVITY_INDEX, { unique: false });
+      }
+      if (!db.objectStoreNames.contains(FAILURE_STORE)) {
+        const store = db.createObjectStore(FAILURE_STORE, { keyPath: "key" });
+        store.createIndex(JOB_INDEX2, JOB_INDEX2, { unique: false });
+        store.createIndex(ACTIVITY_INDEX, ACTIVITY_INDEX, { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Could not open archive export store"));
+    request.onblocked = () => reject(new Error("Archive export store is blocked by another tab"));
+    return promise;
+  }
+  function transactionDone(tx, message) {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error(message));
+    tx.onabort = () => reject(tx.error ?? new Error(message));
+    return promise;
+  }
+  function sessionKey(jobId, reportId) {
+    return `${jobId}:session:${reportId}`;
+  }
+  async function putArchiveExportSession(jobId, activityId, session, now = Date.now()) {
+    const snapshot = createSnapshot3(session);
+    const db = await openArchiveExportDb();
+    try {
+      const tx = db.transaction(SESSION_STORE2, "readwrite");
+      const record = {
+        key: sessionKey(jobId, snapshot.report_id),
+        jobId,
+        activityId,
+        reportId: snapshot.report_id,
+        capturedAt: now,
+        snapshot
+      };
+      tx.objectStore(SESSION_STORE2).put(record);
+      await transactionDone(tx, "Could not save archive export session");
+    } finally {
+      db.close();
+    }
+  }
+  var DB_NAME2, DB_VERSION2, JOB_STORE, ITEM_STORE, SESSION_STORE2, FAILURE_STORE, JOB_INDEX2, ACTIVITY_INDEX, STATUS_INDEX;
+  var init_archive_export_store = __esm({
+    "src/shared/archive_export_store.ts"() {
+      "use strict";
+      DB_NAME2 = "trackpull-archive-export";
+      DB_VERSION2 = 1;
+      JOB_STORE = "jobs";
+      ITEM_STORE = "items";
+      SESSION_STORE2 = "sessions";
+      FAILURE_STORE = "failures";
+      JOB_INDEX2 = "jobId";
+      ACTIVITY_INDEX = "activityId";
+      STATUS_INDEX = "status";
+    }
+  });
+
   // src/shared/runtime_messages.ts
   function isRecord2(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -800,6 +881,7 @@
         EXPORT_CSV_REQUEST: "EXPORT_CSV_REQUEST",
         SAVE_IMPORTED_SESSION: "SAVE_IMPORTED_SESSION",
         SAVE_BULK_IMPORTED_SESSION: "SAVE_BULK_IMPORTED_SESSION",
+        SAVE_ARCHIVE_EXPORTED_SESSION: "SAVE_ARCHIVE_EXPORTED_SESSION",
         PORTAL_GRAPHQL_FETCH: "PORTAL_GRAPHQL_FETCH",
         HISTORY_ERROR: "HISTORY_ERROR",
         DATA_UPDATED: "DATA_UPDATED"
@@ -816,6 +898,7 @@
       init_history();
       init_portal_parser();
       init_bulk_import_store();
+      init_archive_export_store();
       init_runtime_messages();
       chrome.runtime.onInstalled.addListener(() => {
         console.log("TrackPull extension installed");
@@ -974,6 +1057,38 @@
             } catch (err) {
               console.error("TrackPull: Bulk import item failed:", err);
               sendResponse({ success: false, error: "Import failed \u2014 try again" });
+            }
+          })();
+          return true;
+        }
+        if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_ARCHIVE_EXPORTED_SESSION) {
+          const { jobId, activityId, graphqlPayloads } = message;
+          (async () => {
+            try {
+              const firstError = graphqlPayloads.find((payload) => payload.errors && payload.errors.length > 0)?.errors?.[0];
+              const hasPayloadWithoutErrors = graphqlPayloads.some((payload) => !payload.errors || payload.errors.length === 0);
+              if (firstError && !hasPayloadWithoutErrors) {
+                sendResponse({ success: false, error: firstError.message });
+                return;
+              }
+              const session = parseImportedSession(graphqlPayloads);
+              if (!session) {
+                sendResponse({ success: false, error: "No shot data found for this activity" });
+                return;
+              }
+              await putArchiveExportSession(jobId, activityId, session);
+              const shotCount = session.club_groups.reduce(
+                (total, club) => total + club.shots.length,
+                0
+              );
+              sendResponse({
+                success: true,
+                reportId: session.report_id,
+                shotCount
+              });
+            } catch (err) {
+              console.error("TrackPull: Archive export item failed:", err);
+              sendResponse({ success: false, error: "Archive export failed \u2014 try again" });
             }
           })();
           return true;

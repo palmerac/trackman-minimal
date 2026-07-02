@@ -20,4 +20,5 @@ export const STORAGE_KEYS = {
   SESSION_HISTORY: "sessionHistory",
   IMPORT_STATUS: "importStatus",
   BULK_IMPORT_STATUS: "bulkImportStatus",
+  PORTAL_ARCHIVE_EXPORT_STATUS: "portalArchiveExportStatus",
 } as const;

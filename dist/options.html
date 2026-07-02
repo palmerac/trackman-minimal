@@ -349,6 +349,68 @@
       margin: 0 0 12px 0;
     }
 
+    .portal-archive-copy {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 16px 0;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--color-text-body);
+    }
+
+    .portal-archive-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .portal-archive-actions button:disabled,
+    .btn-primary:disabled,
+    .btn-secondary:disabled {
+      background-color: var(--color-disabled);
+      border-color: var(--color-disabled);
+      color: var(--color-text-on-accent);
+      cursor: not-allowed;
+    }
+
+    .portal-archive-status {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-bg-subtle);
+    }
+
+    .portal-archive-progress-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--color-border);
+    }
+
+    .portal-archive-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: var(--color-accent);
+      transition: width 0.2s ease;
+    }
+
+    .portal-archive-progress-text {
+      margin: 10px 0 0 0;
+      font-size: 13px;
+      color: var(--color-text-body);
+    }
+
+    .portal-archive-detail {
+      margin: 6px 0 0 0;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      line-height: 1.45;
+    }
+
     .danger-zone {
       border-color: var(--color-status-error);
       background: var(--color-danger-light);
@@ -531,7 +593,34 @@
       </div>
     </section>
 
-    <!-- Section 3: Privacy and data -->
+    <!-- Section 3: Portal archive export -->
+    <section class="section">
+      <h2>Portal Archive Export</h2>
+      <p class="privacy-note">Export every supported Course Play and Map My Bag activity you can see in Trackman Portal into local files.</p>
+      <ul class="portal-archive-copy">
+        <li>You must be logged into <a href="#" id="portal-archive-open-link">portal.trackmangolf.com</a>; TrackPull uses your browser session only.</li>
+        <li>Data stays local until your browser downloads the CSV, manifest, and failure report files.</li>
+        <li>Requests are allowlisted, sequential, and throttled so the portal is treated respectfully.</li>
+        <li>Progress is saved locally, so you can pause, resume after reopening settings, cancel, or retry failed items.</li>
+      </ul>
+      <div class="portal-archive-actions">
+        <button id="portal-archive-start-btn" class="btn-primary">Export all supported portal sessions</button>
+        <button id="portal-archive-pause-btn" class="btn-secondary" disabled>Pause</button>
+        <button id="portal-archive-resume-btn" class="btn-secondary" disabled>Resume</button>
+        <button id="portal-archive-cancel-btn" class="btn-secondary" disabled>Cancel</button>
+        <button id="portal-archive-retry-btn" class="btn-secondary" disabled>Retry failed</button>
+        <button id="portal-archive-download-btn" class="btn-primary" disabled>Download artifacts</button>
+      </div>
+      <div class="portal-archive-status" aria-live="polite">
+        <div class="portal-archive-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="portal-archive-progress-bar" class="portal-archive-progress-bar"></div>
+        </div>
+        <p id="portal-archive-progress-text" class="portal-archive-progress-text">No archive export has started.</p>
+        <p id="portal-archive-detail" class="portal-archive-detail">Open Trackman Portal in another tab before starting.</p>
+      </div>
+    </section>
+
+    <!-- Section 4: Privacy and data -->
     <section class="section danger-zone">
       <h2>Privacy &amp; Data</h2>
       <p class="privacy-note">TrackPull stores captured sessions, preferences, custom prompts, and bulk import data in this browser.</p>
