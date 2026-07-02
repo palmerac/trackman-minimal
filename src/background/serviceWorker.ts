@@ -8,41 +8,21 @@ import type { SessionData } from "../models/types";
 import { migrateLegacyPref, type UnitChoice, type SpeedUnit, type DistanceUnit } from "../shared/unit_normalization";
 import { saveSessionToHistory, getHistoryErrorMessage } from "../shared/history";
 import { parsePortalActivity } from "../shared/portal_parser";
-import type { GraphQLActivity } from "../shared/portal_parser";
 import type { ImportStatus } from "../shared/import_types";
 import { putBulkImportedSession } from "../shared/bulk_import_store";
-
-interface ImportedSessionGraphQLData {
-  data?: { node?: GraphQLActivity };
-  errors?: Array<{ message: string; extensions?: { code?: string } }>;
-}
+import {
+  RUNTIME_MESSAGE_TYPES,
+  isAllowedReportRuntimeSender,
+  isMinimalSessionData,
+  type ImportedSessionGraphQLData,
+  type RuntimeRequestMessage,
+  type SaveDataRequest,
+} from "../shared/runtime_messages";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("TrackPull extension installed");
 });
 
-interface SaveDataRequest {
-  type: "SAVE_DATA";
-  data: SessionData;
-}
-
-interface ExportCsvRequest {
-  type: "EXPORT_CSV_REQUEST";
-}
-
-interface SaveImportedSessionRequest {
-  type: "SAVE_IMPORTED_SESSION";
-  graphqlData?: ImportedSessionGraphQLData;
-  graphqlPayloads?: ImportedSessionGraphQLData[];
-  activityId: string;
-}
-
-interface SaveBulkImportedSessionRequest {
-  type: "SAVE_BULK_IMPORTED_SESSION";
-  jobId: string;
-  graphqlPayloads: ImportedSessionGraphQLData[];
-  activityId: string;
-}
 
 function getDownloadErrorMessage(originalError: string): string {
   if (originalError.includes("invalid")) {
@@ -57,11 +37,6 @@ function getDownloadErrorMessage(originalError: string): string {
   return originalError;
 }
 
-type RequestMessage =
-  | SaveDataRequest
-  | ExportCsvRequest
-  | SaveImportedSessionRequest
-  | SaveBulkImportedSessionRequest;
 
 function parseImportedSession(
   payloads: ImportedSessionGraphQLData[]
@@ -75,9 +50,17 @@ function parseImportedSession(
   return null;
 }
 
-chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendResponse) => {
-  if (message.type === "SAVE_DATA") {
+chrome.runtime.onMessage.addListener((message: RuntimeRequestMessage, sender, sendResponse) => {
+  if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_DATA) {
     const sessionData = (message as SaveDataRequest).data;
+    if (!isAllowedReportRuntimeSender(sender)) {
+      sendResponse({ success: false, error: "Untrusted report page sender" });
+      return false;
+    }
+    if (!isMinimalSessionData(sessionData)) {
+      sendResponse({ success: false, error: "Invalid session data" });
+      return false;
+    }
     chrome.storage.local.set({ [STORAGE_KEYS.TRACKMAN_DATA]: sessionData }, () => {
       if (chrome.runtime.lastError) {
         console.error("TrackPull: Failed to save data:", chrome.runtime.lastError);
@@ -90,7 +73,7 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
         saveSessionToHistory(sessionData).catch((err) => {
           console.error("TrackPull: History save failed:", err);
           const msg = getHistoryErrorMessage(err.message);
-          chrome.runtime.sendMessage({ type: "HISTORY_ERROR", error: msg }).catch(() => {
+          chrome.runtime.sendMessage({ type: RUNTIME_MESSAGE_TYPES.HISTORY_ERROR, error: msg }).catch(() => {
             // Popup not open -- already logged to console
           });
         });
@@ -99,7 +82,7 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
     return true;
   }
 
-  if (message.type === "EXPORT_CSV_REQUEST") {
+  if (message.type === RUNTIME_MESSAGE_TYPES.EXPORT_CSV_REQUEST) {
     chrome.storage.local.get([STORAGE_KEYS.TRACKMAN_DATA, STORAGE_KEYS.SPEED_UNIT, STORAGE_KEYS.DISTANCE_UNIT, STORAGE_KEYS.HITTING_SURFACE, STORAGE_KEYS.INCLUDE_AVERAGES, "unitPreference"], (result) => {
       const data = result[STORAGE_KEYS.TRACKMAN_DATA] as SessionData | undefined;
       if (!data || !data.club_groups || data.club_groups.length === 0) {
@@ -136,7 +119,7 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
           (downloadId) => {
             if (chrome.runtime.lastError) {
               console.error("TrackPull: Download failed:", chrome.runtime.lastError);
-              const errorMessage = getDownloadErrorMessage(chrome.runtime.lastError.message);
+              const errorMessage = getDownloadErrorMessage(chrome.runtime.lastError.message ?? "Download failed");
               sendResponse({ success: false, error: errorMessage });
             } else {
               console.log(`TrackPull: CSV exported with download ID ${downloadId}`);
@@ -153,7 +136,7 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
   }
 
   // Receives pre-fetched GraphQL data from popup (fetched via content script on portal page)
-  if (message.type === "SAVE_IMPORTED_SESSION") {
+  if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_IMPORTED_SESSION) {
     const { graphqlData, graphqlPayloads } = message;
     sendResponse({ success: true });
 
@@ -187,7 +170,7 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
     return false;
   }
 
-  if (message.type === "SAVE_BULK_IMPORTED_SESSION") {
+  if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_BULK_IMPORTED_SESSION) {
     const { jobId, activityId, graphqlPayloads } = message;
 
     (async () => {
@@ -206,7 +189,6 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
           return;
         }
 
-        await chrome.storage.local.set({ [STORAGE_KEYS.TRACKMAN_DATA]: session });
         await saveSessionToHistory(session);
         await putBulkImportedSession(jobId, activityId, session);
 
@@ -232,7 +214,7 @@ chrome.runtime.onMessage.addListener((message: RequestMessage, sender, sendRespo
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === "local" && changes[STORAGE_KEYS.TRACKMAN_DATA]) {
     const newValue = changes[STORAGE_KEYS.TRACKMAN_DATA].newValue;
-    chrome.runtime.sendMessage({ type: "DATA_UPDATED", data: newValue }).catch(() => {
+    chrome.runtime.sendMessage({ type: RUNTIME_MESSAGE_TYPES.DATA_UPDATED, data: newValue }).catch(() => {
       // Ignore errors when no popup is listening
     });
   }

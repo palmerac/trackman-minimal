@@ -16,6 +16,7 @@
  */
 
 import type { SessionData, Shot, ClubGroup } from "../models/types";
+import { GRAPHQL_METRIC_ALIAS } from "./metric_catalog";
 
 // ---------------------------------------------------------------------------
 // Exported types (used by Phase 24 integration)
@@ -60,43 +61,6 @@ export interface GraphQLActivity {
   [key: string]: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// GRAPHQL_METRIC_ALIAS — all 29 METRIC_KEYS from camelCase to PascalCase
-// ---------------------------------------------------------------------------
-
-const GRAPHQL_METRIC_ALIAS: Record<string, string> = {
-  clubSpeed: "ClubSpeed",
-  ballSpeed: "BallSpeed",
-  smashFactor: "SmashFactor",
-  attackAngle: "AttackAngle",
-  clubPath: "ClubPath",
-  faceAngle: "FaceAngle",
-  faceToPath: "FaceToPath",
-  swingDirection: "SwingDirection",
-  swingPlane: "SwingPlane",
-  dynamicLoft: "DynamicLoft",
-  spinRate: "SpinRate",
-  ballSpin: "SpinRate",
-  spinAxis: "SpinAxis",
-  spinLoft: "SpinLoft",
-  launchAngle: "LaunchAngle",
-  launchDirection: "LaunchDirection",
-  carry: "Carry",
-  total: "Total",
-  side: "Side",
-  sideTotal: "SideTotal",
-  carrySide: "CarrySide",
-  totalSide: "TotalSide",
-  height: "Height",
-  maxHeight: "MaxHeight",
-  curve: "Curve",
-  landingAngle: "LandingAngle",
-  hangTime: "HangTime",
-  lowPointDistance: "LowPointDistance",
-  impactHeight: "ImpactHeight",
-  impactOffset: "ImpactOffset",
-  tempo: "Tempo",
-};
 
 // ---------------------------------------------------------------------------
 // Helper functions

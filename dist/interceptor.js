@@ -1,43 +1,97 @@
+"use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
+    }
   };
+  var __commonJS = (cb, mod) => function __require() {
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
+  };
+
+  // src/shared/runtime_messages.ts
+  var REPORT_PAGE_ORIGIN, WINDOW_MESSAGE_SOURCES, WINDOW_MESSAGE_TYPES;
+  var init_runtime_messages = __esm({
+    "src/shared/runtime_messages.ts"() {
+      "use strict";
+      REPORT_PAGE_ORIGIN = "https://web-dynamic-reports.trackmangolf.com";
+      WINDOW_MESSAGE_SOURCES = {
+        REPORT_INTERCEPTOR: "trackpull-interceptor"
+      };
+      WINDOW_MESSAGE_TYPES = {
+        TRACKMAN_SHOT_DATA: "TRACKMAN_SHOT_DATA"
+      };
+    }
+  });
+
+  // src/shared/report_url.ts
+  function classifyReportUrlType(sourceUrl) {
+    const parsedUrl = typeof sourceUrl === "string" ? new URL(sourceUrl, REPORT_PAGE_ORIGIN) : sourceUrl;
+    return parsedUrl.searchParams.has("a") ? "activity" : "report";
+  }
+  var init_report_url = __esm({
+    "src/shared/report_url.ts"() {
+      "use strict";
+      init_runtime_messages();
+    }
+  });
+
+  // src/shared/metric_catalog.ts
+  function isKnownReportMetric(metric) {
+    return metric in METRIC_DISPLAY_NAMES;
+  }
+  var METRIC_DISPLAY_NAMES;
+  var init_metric_catalog = __esm({
+    "src/shared/metric_catalog.ts"() {
+      "use strict";
+      METRIC_DISPLAY_NAMES = {
+        ClubSpeed: "Club Speed",
+        BallSpeed: "Ball Speed",
+        SmashFactor: "Smash Factor",
+        AttackAngle: "Attack Angle",
+        ClubPath: "Club Path",
+        FaceAngle: "Face Angle",
+        FaceToPath: "Face To Path",
+        SwingDirection: "Swing Direction",
+        DynamicLoft: "Dynamic Loft",
+        SpinRate: "Spin Rate",
+        SpinAxis: "Spin Axis",
+        SpinLoft: "Spin Loft",
+        LaunchAngle: "Launch Angle",
+        LaunchDirection: "Launch Direction",
+        Carry: "Carry",
+        Total: "Total",
+        Side: "Side",
+        SideTotal: "Side Total",
+        CarrySide: "Carry Side",
+        TotalSide: "Total Side",
+        Height: "Height",
+        MaxHeight: "Max Height",
+        Curve: "Curve",
+        LandingAngle: "Landing Angle",
+        HangTime: "Hang Time",
+        LowPointDistance: "Low Point",
+        ImpactHeight: "Impact Height",
+        ImpactOffset: "Impact Offset",
+        Tempo: "Tempo"
+      };
+    }
+  });
 
   // src/content/interceptor.ts
   var require_interceptor = __commonJS({
     "src/content/interceptor.ts"() {
-      var METRIC_KEYS = /* @__PURE__ */ new Set([
-        "ClubSpeed",
-        "BallSpeed",
-        "SmashFactor",
-        "AttackAngle",
-        "ClubPath",
-        "FaceAngle",
-        "FaceToPath",
-        "SwingDirection",
-        "DynamicLoft",
-        "SpinRate",
-        "SpinAxis",
-        "SpinLoft",
-        "LaunchAngle",
-        "LaunchDirection",
-        "Carry",
-        "Total",
-        "Side",
-        "SideTotal",
-        "CarrySide",
-        "TotalSide",
-        "Height",
-        "MaxHeight",
-        "Curve",
-        "LandingAngle",
-        "HangTime",
-        "LowPointDistance",
-        "ImpactHeight",
-        "ImpactOffset",
-        "Tempo"
-      ]);
+      init_runtime_messages();
+      init_report_url();
+      init_metric_catalog();
       function containsStrokegroups(data) {
         if (!data || typeof data !== "object") return false;
         const obj = data;
@@ -91,7 +145,7 @@
           const session = {
             date: dateStr,
             report_id: reportId,
-            url_type: "StrokeGroups" in data ? "activity" : "report",
+            url_type: classifyReportUrlType(parsedUrl),
             club_groups: [],
             metric_names: [],
             metadata_params: {}
@@ -114,7 +168,7 @@
                 const merged = { ...raw, ...normalized };
                 const shotMetrics = {};
                 for (const [key, value] of Object.entries(merged)) {
-                  if (!METRIC_KEYS.has(key)) continue;
+                  if (!isKnownReportMetric(key)) continue;
                   let numValue = null;
                   if (typeof value === "number") {
                     numValue = value;
@@ -169,11 +223,11 @@
       function postSession(session) {
         window.postMessage(
           {
-            type: "TRACKMAN_SHOT_DATA",
-            source: "trackpull-interceptor",
+            type: WINDOW_MESSAGE_TYPES.TRACKMAN_SHOT_DATA,
+            source: WINDOW_MESSAGE_SOURCES.REPORT_INTERCEPTOR,
             data: session
           },
-          "*"
+          window.location.origin
         );
         const totalShots = session.club_groups.reduce((n, g) => n + g.shots.length, 0);
         const taggedShots = session.club_groups.reduce(

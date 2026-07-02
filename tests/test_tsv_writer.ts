@@ -399,3 +399,46 @@ describe("TSV Writer: multi-club sessions", () => {
     expect(thirdDataCols[1]).toBe("7 Iron");
   });
 });
+
+describe("TSV Writer: spreadsheet formula neutralization", () => {
+  it("neutralizes formula-like text cells before TSV delimiter escaping", () => {
+    const session: SessionData = {
+      date: "\t2025-01-15",
+      report_id: "test-123",
+      url_type: "report",
+      metric_names: ["-InjectedMetric", "ClubSpeed", "ImpactOffset"],
+      metadata_params: { nd_001: "789012" },
+      club_groups: [
+        {
+          club_name: "\r7 Iron",
+          shots: [
+            {
+              shot_number: 0,
+              tag: "=Stock",
+              metrics: {
+                "-InjectedMetric": "@cmd",
+                ClubSpeed: "44.704",
+                ImpactOffset: "-0.0012",
+              },
+            },
+          ],
+          averages: {},
+          consistency: {},
+        },
+      ],
+    };
+
+    const tsv = writeTsv(session, imperial);
+    const [header, row] = tsv.split("\n");
+    const headers = header.split("\t");
+    const values = row.split("\t");
+
+    expect(headers).toContain("'-InjectedMetric");
+    expect(values[0]).toBe("' 2025-01-15");
+    expect(values[1]).toBe("' 7 Iron");
+    expect(values[2]).toBe("'=Stock");
+    expect(values[headers.indexOf("'-InjectedMetric")]).toBe("'@cmd");
+    expect(values[headers.indexOf("Club Speed (mph)")]).toBe("100");
+    expect(values[headers.indexOf("Impact Offset (mm)")]).toBe("-1");
+  });
+});

@@ -6,6 +6,24 @@
  * - Common values: 789012 = yards/degrees, 789013 = meters/radians
  */
 
+import {
+  ANGLE_METRICS,
+  DISTANCE_METRICS,
+  FIXED_UNIT_LABELS,
+  MILLIMETER_METRICS,
+  SMALL_DISTANCE_METRICS,
+  SPEED_METRICS,
+} from "./metric_catalog";
+
+export {
+  ANGLE_METRICS,
+  DISTANCE_METRICS,
+  FIXED_UNIT_LABELS,
+  MILLIMETER_METRICS,
+  SMALL_DISTANCE_METRICS,
+  SPEED_METRICS,
+} from "./metric_catalog";
+
 export type UnitSystemId = "789012" | "789013" | "789014" | string;
 
 export type SpeedUnit = "mph" | "m/s";
@@ -56,59 +74,6 @@ export interface UnitSystem {
   speedUnit: "mph" | "km/h" | "m/s";
 }
 
-/**
- * Metrics that use distance units.
- */
-export const DISTANCE_METRICS = new Set([
-  "Carry",
-  "Total",
-  "Side",
-  "SideTotal",
-  "CarrySide",
-  "TotalSide",
-  "Height",
-  "MaxHeight",
-  "Curve",
-]);
-
-/**
- * Metrics that use small distance units (inches/cm).
- * These values come from the API in meters but are too small for yards/meters.
- */
-export const SMALL_DISTANCE_METRICS = new Set([
-  "LowPointDistance",
-]);
-
-/**
- * Trackman impact location metrics are always displayed in millimeters.
- * The API returns these values in meters.
- */
-export const MILLIMETER_METRICS = new Set([
-  "ImpactHeight",
-  "ImpactOffset",
-]);
-
-/**
- * Metrics that use angle units.
- */
-export const ANGLE_METRICS = new Set([
-  "AttackAngle",
-  "ClubPath",
-  "FaceAngle",
-  "FaceToPath",
-  "DynamicLoft",
-  "LaunchAngle",
-  "LaunchDirection",
-  "LandingAngle",
-]);
-
-/**
- * Metrics that use speed units.
- */
-export const SPEED_METRICS = new Set([
-  "ClubSpeed",
-  "BallSpeed",
-]);
 
 /**
  * Default unit system (Imperial - yards/degrees).
@@ -154,16 +119,6 @@ export function migrateLegacyPref(stored: string | undefined): UnitChoice {
   }
 }
 
-/**
- * Fixed unit labels for metrics whose units don't vary by preference.
- */
-export const FIXED_UNIT_LABELS: Record<string, string> = {
-  SpinRate: "rpm",
-  HangTime: "s",
-  Tempo: "s",
-  ImpactHeight: "mm",
-  ImpactOffset: "mm",
-};
 
 /**
  * Extract nd_* parameters from metadata_params.
@@ -241,10 +196,10 @@ export function getMetricUnitLabel(
   unitChoice: UnitChoice = DEFAULT_UNIT_CHOICE
 ): string {
   if (metricName in FIXED_UNIT_LABELS) return FIXED_UNIT_LABELS[metricName];
-  if (SPEED_METRICS.has(metricName)) return SPEED_LABELS[unitChoice.speed];
-  if (SMALL_DISTANCE_METRICS.has(metricName)) return SMALL_DISTANCE_LABELS[getSmallDistanceUnit(unitChoice)];
-  if (DISTANCE_METRICS.has(metricName)) return DISTANCE_LABELS[unitChoice.distance];
-  if (ANGLE_METRICS.has(metricName)) return "°";
+  if (metricName in SPEED_METRICS) return SPEED_LABELS[unitChoice.speed];
+  if (metricName in SMALL_DISTANCE_METRICS) return SMALL_DISTANCE_LABELS[getSmallDistanceUnit(unitChoice)];
+  if (metricName in DISTANCE_METRICS) return DISTANCE_LABELS[unitChoice.distance];
+  if (metricName in ANGLE_METRICS) return "°";
   return "";
 }
 
@@ -391,26 +346,26 @@ export function normalizeMetricValue(
 
   let converted: number;
 
-  if (MILLIMETER_METRICS.has(metricName)) {
+  if (metricName in MILLIMETER_METRICS) {
     converted = convertMillimeters(numValue) as number;
-  } else if (SMALL_DISTANCE_METRICS.has(metricName)) {
+  } else if (metricName in SMALL_DISTANCE_METRICS) {
     converted = convertSmallDistance(
       numValue,
       getSmallDistanceUnit(unitChoice)
     ) as number;
-  } else if (DISTANCE_METRICS.has(metricName)) {
+  } else if (metricName in DISTANCE_METRICS) {
     converted = convertDistance(
       numValue,
       reportUnitSystem.distanceUnit,
       unitChoice.distance
     ) as number;
-  } else if (ANGLE_METRICS.has(metricName)) {
+  } else if (metricName in ANGLE_METRICS) {
     converted = convertAngle(
       numValue,
       reportUnitSystem.angleUnit,
       "degrees"
     ) as number;
-  } else if (SPEED_METRICS.has(metricName)) {
+  } else if (metricName in SPEED_METRICS) {
     converted = convertSpeed(
       numValue,
       reportUnitSystem.speedUnit,
@@ -424,7 +379,7 @@ export function normalizeMetricValue(
   if (metricName === "SpinRate") return Math.round(converted);
 
   // Impact location metrics are displayed as whole millimeters.
-  if (MILLIMETER_METRICS.has(metricName)) return Math.round(converted);
+  if (metricName in MILLIMETER_METRICS) return Math.round(converted);
 
   // SmashFactor / Tempo: round to 2 decimal places
   if (metricName === "SmashFactor" || metricName === "Tempo")

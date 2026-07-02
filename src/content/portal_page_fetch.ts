@@ -17,6 +17,7 @@ import {
   type PortalGraphQLRequestMessage,
   type PortalGraphQLResponseMessage,
 } from "./portal_bridge_protocol";
+import { validatePortalGraphQLRequest } from "../shared/portal_graphql_allowlist";
 
 type HeaderMap = Record<string, string>;
 
@@ -269,6 +270,17 @@ async function fetchGraphQLInPageContext(
   query: string,
   variables?: Record<string, unknown>
 ): Promise<PortalGraphQLResponseMessage> {
+  const validation = validatePortalGraphQLRequest(query, variables);
+  if (!validation.ok) {
+    return {
+      source: PORTAL_GRAPHQL_RESPONSE_SOURCE,
+      type: PORTAL_GRAPHQL_RESPONSE_TYPE,
+      requestId: "",
+      success: false,
+      error: validation.error,
+    };
+  }
+
   try {
     installFetchCapture();
     const response = await getPageFetch()(PORTAL_GRAPHQL_ENDPOINT, {
@@ -320,10 +332,22 @@ function isPortalGraphQLRequestMessage(value: unknown): value is PortalGraphQLRe
 
 function registerPageBridge(): void {
   window.addEventListener("message", (event: MessageEvent) => {
-    if (event.source !== window) return;
+    if (event.source !== window || event.origin !== window.location.origin) return;
     if (!isPortalGraphQLRequestMessage(event.data)) return;
 
     const request = event.data;
+    const validation = validatePortalGraphQLRequest(request.query, request.variables);
+    if (!validation.ok) {
+      window.postMessage({
+        source: PORTAL_GRAPHQL_RESPONSE_SOURCE,
+        type: PORTAL_GRAPHQL_RESPONSE_TYPE,
+        requestId: request.requestId,
+        success: false,
+        error: validation.error,
+      } satisfies PortalGraphQLResponseMessage, window.location.origin);
+      return;
+    }
+
     fetchGraphQLInPageContext(request.query, request.variables)
       .then((response) => {
         window.postMessage({ ...response, requestId: request.requestId }, window.location.origin);

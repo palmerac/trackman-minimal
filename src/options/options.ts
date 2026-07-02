@@ -5,8 +5,15 @@
 
 import { BUILTIN_PROMPTS } from "../shared/prompt_types";
 import type { CustomPrompt } from "../shared/prompt_types";
-import { loadCustomPrompts, saveCustomPrompt, deleteCustomPrompt } from "../shared/custom_prompts";
-import { STORAGE_KEYS } from "../shared/constants";
+import {
+  CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR,
+  deleteCustomPrompt,
+  loadCustomPrompts,
+  saveCustomPrompt,
+  validateCustomPromptTemplate,
+} from "../shared/custom_prompts";
+import { clearAllBulkImportedSessions } from "../shared/bulk_import_store";
+import { CUSTOM_PROMPT_KEY_PREFIX, CUSTOM_PROMPT_IDS_KEY, STORAGE_KEYS } from "../shared/constants";
 
 /** Tracks which custom prompt is being edited (null = creating new) */
 let editingPromptId: string | null = null;
@@ -15,6 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderBuiltInPrompts();
   await renderCustomPrompts();
   setupNewPromptForm();
+  setupPrivacyActions();
   await restoreAiPreference();
 });
 
@@ -109,8 +117,23 @@ function openEditForm(prompt: CustomPrompt): void {
 
   if (nameInput) nameInput.value = prompt.name;
   if (templateInput) templateInput.value = prompt.template;
+  setTemplateError(null);
   if (form) form.style.display = "block";
   if (newPromptBtn) newPromptBtn.style.display = "none";
+}
+
+function setTemplateError(message: string | null): void {
+  const templateInput = document.getElementById("prompt-template-input") as HTMLTextAreaElement | null;
+  const errorElement = document.getElementById("prompt-template-error");
+  if (!templateInput || !errorElement) return;
+
+  templateInput.setCustomValidity(message ?? "");
+  if (message === null) {
+    templateInput.removeAttribute("aria-invalid");
+  } else {
+    templateInput.setAttribute("aria-invalid", "true");
+  }
+  errorElement.textContent = message ?? "";
 }
 
 /** Sets up the new prompt form event listeners. */
@@ -128,6 +151,7 @@ function setupNewPromptForm(): void {
     editingPromptId = null;
     nameInput.value = "";
     templateInput.value = "";
+    setTemplateError(null);
     form.style.display = "block";
     newPromptBtn.style.display = "none";
     nameInput.focus();
@@ -137,8 +161,15 @@ function setupNewPromptForm(): void {
     editingPromptId = null;
     nameInput.value = "";
     templateInput.value = "";
+    setTemplateError(null);
     form.style.display = "none";
     newPromptBtn.style.display = "inline-flex";
+  });
+
+  templateInput.addEventListener("input", () => {
+    if (templateInput.validationMessage === CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR) {
+      setTemplateError(validateCustomPromptTemplate(templateInput.value.trim()));
+    }
   });
 
   saveBtn.addEventListener("click", async () => {
@@ -157,6 +188,16 @@ function setupNewPromptForm(): void {
       return;
     }
 
+    const templateError = validateCustomPromptTemplate(templateValue);
+    if (templateError) {
+      setTemplateError(templateError);
+      showToast(templateError, "error");
+      templateInput.focus();
+      return;
+    }
+
+    setTemplateError(null);
+
     const id = editingPromptId ?? crypto.randomUUID();
     const prompt: CustomPrompt = { id, name: nameValue, template: templateValue };
 
@@ -166,6 +207,7 @@ function setupNewPromptForm(): void {
       editingPromptId = null;
       nameInput.value = "";
       templateInput.value = "";
+      setTemplateError(null);
       form.style.display = "none";
       newPromptBtn.style.display = "inline-flex";
       await renderCustomPrompts();
@@ -173,9 +215,78 @@ function setupNewPromptForm(): void {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("QUOTA_BYTES")) {
         showToast("Storage full. Delete prompts to save new ones.", "error");
+      } else if (message === CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR) {
+        setTemplateError(message);
+        showToast(message, "error");
+        templateInput.focus();
       } else {
         showToast("Failed to save prompt. Please try again.", "error");
       }
+    }
+  });
+}
+
+function removeFromStorage(area: chrome.storage.StorageArea, keys: string[]): Promise<void> {
+  const { promise, resolve, reject } = Promise.withResolvers<void>();
+  area.remove(keys, () => {
+    if (chrome.runtime.lastError) {
+      reject(new Error(chrome.runtime.lastError.message));
+    } else {
+      resolve();
+    }
+  });
+  return promise;
+}
+
+async function clearAllTrackPullData(): Promise<void> {
+  const customPrompts = await loadCustomPrompts();
+  const customPromptKeys = customPrompts.map((prompt) => CUSTOM_PROMPT_KEY_PREFIX + prompt.id);
+  const localKeys = Object.values(STORAGE_KEYS);
+  const syncKeys = [STORAGE_KEYS.AI_SERVICE, CUSTOM_PROMPT_IDS_KEY, ...customPromptKeys];
+
+  await Promise.all([
+    removeFromStorage(chrome.storage.local, localKeys),
+    removeFromStorage(chrome.storage.sync, syncKeys),
+    clearAllBulkImportedSessions(),
+  ]);
+}
+
+function resetPromptForm(): void {
+  const form = document.getElementById("prompt-form");
+  const newPromptBtn = document.getElementById("new-prompt-btn");
+  const nameInput = document.getElementById("prompt-name-input") as HTMLInputElement | null;
+  const templateInput = document.getElementById("prompt-template-input") as HTMLTextAreaElement | null;
+
+  editingPromptId = null;
+  if (nameInput) nameInput.value = "";
+  if (templateInput) templateInput.value = "";
+  setTemplateError(null);
+  if (form) form.style.display = "none";
+  if (newPromptBtn) newPromptBtn.style.display = "inline-flex";
+}
+
+function setupPrivacyActions(): void {
+  const clearAllBtn = document.getElementById("clear-all-data-btn") as HTMLButtonElement | null;
+  if (!clearAllBtn) return;
+
+  clearAllBtn.addEventListener("click", async () => {
+    const confirmed = window.confirm(
+      "Clear all TrackPull data from this browser, including current session, history, bulk imports, preferences, and custom prompts?"
+    );
+    if (!confirmed) return;
+
+    clearAllBtn.disabled = true;
+    try {
+      await clearAllTrackPullData();
+      resetPromptForm();
+      await renderCustomPrompts();
+      await restoreAiPreference();
+      showToast("All TrackPull data cleared.", "success");
+    } catch (err) {
+      console.error("Failed to clear TrackPull data:", err);
+      showToast("Failed to clear all TrackPull data.", "error");
+    } finally {
+      clearAllBtn.disabled = false;
     }
   });
 }
@@ -187,13 +298,11 @@ async function restoreAiPreference(): Promise<void> {
 
   const result = await chrome.storage.sync.get([STORAGE_KEYS.AI_SERVICE]);
   const savedService = result[STORAGE_KEYS.AI_SERVICE] as string | undefined;
-  if (savedService) {
-    select.value = savedService;
-  }
+  select.value = savedService ?? "ChatGPT";
 
-  select.addEventListener("change", () => {
+  select.onchange = () => {
     chrome.storage.sync.set({ [STORAGE_KEYS.AI_SERVICE]: select.value });
-  });
+  };
 }
 
 /** Displays a temporary toast notification. */

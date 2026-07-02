@@ -1,6 +1,6 @@
 {
   "name": "trackv3",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "<p align=\"center\">   <img src=\"TrackPuller.png\" alt=\"TrackPull\" width=\"300\"> </p>",
   "main": "index.js",
   "directories": {
@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "build": "bash scripts/build-extension.sh"
   },
   "repository": {
@@ -23,6 +24,7 @@
   },
   "homepage": "https://github.com/criticalberne/TrackPull#readme",
   "devDependencies": {
+    "@types/chrome": "^0.2.2",
     "esbuild": "^0.28.0",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^28.1.0",

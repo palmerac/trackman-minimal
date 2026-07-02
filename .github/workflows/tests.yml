@@ -16,7 +16,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx vitest run
+      - run: npm run typecheck
+      - run: npm test
       - name: Verify dist/ is in sync with src/
         run: |
           npm run build

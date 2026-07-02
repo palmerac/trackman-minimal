@@ -38,6 +38,7 @@ import { assemblePrompt, buildUnitLabel, countSessionShots } from "../shared/pro
 import { loadCustomPrompts } from "../shared/custom_prompts";
 import { hasPortalPermission, requestPortalPermission, PORTAL_ORIGINS } from "../shared/portalPermissions";
 import { formatActivityDate, getPortalActivityDisplayLabel } from "../shared/activity_helpers";
+import { RUNTIME_MESSAGE_TYPES } from "../shared/runtime_messages";
 
 export function computeClubAverage(
   shots: Shot[],
@@ -120,7 +121,7 @@ async function fetchPortalGraphQL(
   variables?: Record<string, unknown>
 ): Promise<PortalGraphQLFetchResponse> {
   return chrome.tabs.sendMessage(tabId, {
-    type: "PORTAL_GRAPHQL_FETCH",
+    type: RUNTIME_MESSAGE_TYPES.PORTAL_GRAPHQL_FETCH,
     query: candidate.query,
     variables,
   }) as Promise<PortalGraphQLFetchResponse>;
@@ -240,7 +241,7 @@ async function fetchPortalActivityCandidates(
 
   for (const candidate of IMPORT_SESSION_QUERY_CANDIDATES) {
     const fetchResponse = await chrome.tabs.sendMessage(tabId, {
-      type: "PORTAL_GRAPHQL_FETCH",
+      type: RUNTIME_MESSAGE_TYPES.PORTAL_GRAPHQL_FETCH,
       query: candidate.query,
       variables: { id: activityId },
     }) as PortalGraphQLFetchResponse;
@@ -297,7 +298,7 @@ async function importPortalActivityFromTab(
     const graphqlPayloads = await fetchPortalActivityCandidates(tabId, activityId);
     installImportStatusButtonReset(button);
     void chrome.runtime.sendMessage({
-      type: "SAVE_IMPORTED_SESSION",
+      type: RUNTIME_MESSAGE_TYPES.SAVE_IMPORTED_SESSION,
       graphqlPayloads,
       activityId,
     }).catch(() => {
@@ -475,7 +476,7 @@ function saveBulkImportedSession(
 ): Promise<BulkImportResponse> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({
-      type: "SAVE_BULK_IMPORTED_SESSION",
+      type: RUNTIME_MESSAGE_TYPES.SAVE_BULK_IMPORTED_SESSION,
       jobId,
       activityId,
       graphqlPayloads,
@@ -1031,7 +1032,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     const result = await new Promise<Record<string, unknown>>((resolve) => {
-      chrome.storage.local.get([STORAGE_KEYS.TRACKMAN_DATA], resolve);
+      chrome.storage.local.get<Record<string, unknown>>([STORAGE_KEYS.TRACKMAN_DATA], resolve);
     });
 
     const data = result[STORAGE_KEYS.TRACKMAN_DATA];
@@ -1044,7 +1045,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // RESIL-02: Read and display import status on popup open
     const statusResult = await new Promise<Record<string, unknown>>((resolve) => {
-      chrome.storage.local.get([STORAGE_KEYS.IMPORT_STATUS], resolve);
+      chrome.storage.local.get<Record<string, unknown>>([STORAGE_KEYS.IMPORT_STATUS], resolve);
     });
     const importStatus = statusResult[STORAGE_KEYS.IMPORT_STATUS] as ImportStatus | undefined;
     if (importStatus && importStatus.state !== "idle") {
@@ -1057,7 +1058,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Unit dropdowns: read saved values, migrate from legacy key if needed
     const unitResult = await new Promise<Record<string, unknown>>((resolve) => {
-      chrome.storage.local.get([STORAGE_KEYS.SPEED_UNIT, STORAGE_KEYS.DISTANCE_UNIT, STORAGE_KEYS.HITTING_SURFACE, STORAGE_KEYS.INCLUDE_AVERAGES, "unitPreference"], resolve);
+      chrome.storage.local.get<Record<string, unknown>>([STORAGE_KEYS.SPEED_UNIT, STORAGE_KEYS.DISTANCE_UNIT, STORAGE_KEYS.HITTING_SURFACE, STORAGE_KEYS.INCLUDE_AVERAGES, "unitPreference"], resolve);
     });
 
     let speedUnit = unitResult[STORAGE_KEYS.SPEED_UNIT] as string | undefined;
@@ -1177,7 +1178,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Restore last-selected prompt
       const promptResult = await new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.local.get([STORAGE_KEYS.SELECTED_PROMPT_ID], resolve);
+        chrome.storage.local.get<Record<string, unknown>>([STORAGE_KEYS.SELECTED_PROMPT_ID], resolve);
       });
       const savedPromptId = promptResult[STORAGE_KEYS.SELECTED_PROMPT_ID] as string | undefined;
       if (savedPromptId) {
@@ -1200,7 +1201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const aiServiceSelect = document.getElementById("ai-service-select") as HTMLSelectElement | null;
     if (aiServiceSelect) {
       const syncResult = await new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.sync.get([STORAGE_KEYS.AI_SERVICE], resolve);
+        chrome.storage.sync.get<Record<string, unknown>>([STORAGE_KEYS.AI_SERVICE], resolve);
       });
       const savedService = syncResult[STORAGE_KEYS.AI_SERVICE] as string | undefined;
       if (savedService) {
@@ -1315,7 +1316,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           await navigator.clipboard.writeText(assembled);
           // Fire-and-forget tab creation -- do not await
           chrome.tabs.create({ url: AI_URLS[selectedService] });
-          showToast(`Prompt + data copied \u2014 paste into ${selectedService}`, "success");
+          showToast(`Prompt + data copied. Paste it into ${selectedService}.`, "success");
         } catch (err) {
           console.error("AI launch failed:", err);
           showToast("Failed to copy prompt", "error");
@@ -1344,7 +1345,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         try {
           await navigator.clipboard.writeText(assembled);
-          showToast("Prompt + data copied!", "success");
+          showToast("Prompt + data copied to clipboard.", "success");
         } catch (err) {
           console.error("Clipboard write failed:", err);
           showToast("Failed to copy prompt", "error");
@@ -1409,11 +1410,11 @@ async function handleExportClick(): Promise<void> {
   exportBtn.disabled = true;
 
   try {
-    const response = await new Promise<{ success: boolean; error?: string; filename?: string }>((resolve) => {
-      chrome.runtime.sendMessage({ type: "EXPORT_CSV_REQUEST" }, (resp) => {
-        resolve(resp || { success: false, error: "No response from service worker" });
-      });
+    const { promise, resolve } = Promise.withResolvers<{ success: boolean; error?: string; filename?: string }>();
+    chrome.runtime.sendMessage({ type: RUNTIME_MESSAGE_TYPES.EXPORT_CSV_REQUEST }, (resp) => {
+      resolve(resp || { success: false, error: "No response from service worker" });
     });
+    const response = await promise;
 
     if (response.success) {
       showToast(`Exported successfully: ${response.filename || "ShotData.csv"}`, "success");
@@ -1424,6 +1425,7 @@ async function handleExportClick(): Promise<void> {
     console.error("Error during export:", error);
     showToast("Export failed", "error");
   } finally {
+    clearStatusMessage();
     exportBtn.disabled = false;
   }
 }
@@ -1463,33 +1465,42 @@ function showStatusMessage(message: string, isError: boolean = false): void {
   statusElement.classList.add(isError ? "status-error" : "status-success");
 }
 
+function clearStatusMessage(): void {
+  const statusElement = document.getElementById("status-message");
+  if (!statusElement) return;
+
+  statusElement.textContent = "";
+  statusElement.classList.remove("status-error", "status-success");
+}
+
 async function handleClearClick(): Promise<void> {
   const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement | null;
   if (!clearBtn) return;
 
-  showStatusMessage("Clearing session data...", false);
+  showStatusMessage("Clearing current session...", false);
   clearBtn.disabled = true;
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      chrome.storage.local.remove(STORAGE_KEYS.TRACKMAN_DATA, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve();
-        }
-      });
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    chrome.storage.local.remove(STORAGE_KEYS.TRACKMAN_DATA, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
     });
+    await promise;
 
     cachedData = null;
     updateShotCount(null);
     updateExportButtonVisibility(null);
     renderStatCard();
-    showToast("Session data cleared", "success");
+    showToast("Current session cleared", "success");
   } catch (error) {
     console.error("Error clearing session data:", error);
-    showToast("Failed to clear data", "error");
+    showToast("Failed to clear current session", "error");
   } finally {
+    clearStatusMessage();
     clearBtn.disabled = false;
   }
 }

@@ -11,26 +11,9 @@ import {
   DEFAULT_UNIT_CHOICE,
   type UnitChoice,
 } from "./unit_normalization";
-import { METRIC_DISPLAY_NAMES } from "./constants";
+import { METRIC_COLUMN_ORDER, METRIC_DISPLAY_NAMES } from "./metric_catalog";
+import { neutralizeSpreadsheetFormula } from "./spreadsheet_safety";
 
-const METRIC_COLUMN_ORDER: string[] = [
-  // Speed & Efficiency
-  "ClubSpeed", "BallSpeed", "SmashFactor",
-  // Club Delivery
-  "AttackAngle", "ClubPath", "FaceAngle", "FaceToPath", "SwingDirection", "DynamicLoft",
-  // Launch & Spin
-  "LaunchAngle", "LaunchDirection", "SpinRate", "SpinAxis", "SpinLoft",
-  // Distance
-  "Carry", "Total",
-  // Dispersion
-  "Side", "SideTotal", "CarrySide", "TotalSide", "Curve",
-  // Ball Flight
-  "Height", "MaxHeight", "LandingAngle", "HangTime",
-  // Impact
-  "LowPointDistance", "ImpactHeight", "ImpactOffset",
-  // Other
-  "Tempo",
-];
 
 function getDisplayName(metric: string): string {
   return METRIC_DISPLAY_NAMES[metric] ?? metric;
@@ -44,7 +27,7 @@ function getColumnName(metric: string, unitChoice: UnitChoice): string {
 
 function orderMetricsByPriority(
   allMetrics: string[],
-  priorityOrder: string[]
+  priorityOrder: readonly string[]
 ): string[] {
   const result: string[] = [];
   const seen = new Set<string>();
@@ -76,7 +59,7 @@ function hasAnyTags(sessions: SessionData[]): boolean {
 }
 
 function escapeCsvValue(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+  if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
@@ -93,7 +76,7 @@ function createCsvLines(
     lines.push(`Hitting Surface: ${hittingSurface}`);
   }
 
-  lines.push(headerRow.join(","));
+  lines.push(headerRow.map((col) => escapeCsvValue(neutralizeSpreadsheetFormula(col))).join(","));
   for (const row of rows) {
     lines.push(
       headerRow
@@ -137,14 +120,14 @@ export function writeCsv(
   for (const club of session.club_groups) {
     for (const shot of club.shots) {
       const row: Record<string, string> = {
-        Date: session.date,
-        Club: club.club_name,
+        Date: neutralizeSpreadsheetFormula(session.date),
+        Club: neutralizeSpreadsheetFormula(club.club_name),
         "Shot #": String(shot.shot_number + 1),
         Type: "Shot",
       };
 
       if (hasTags(session)) {
-        row.Tag = shot.tag ?? "";
+        row.Tag = neutralizeSpreadsheetFormula(shot.tag ?? "");
       }
 
       for (const metric of orderedMetrics) {
@@ -152,7 +135,10 @@ export function writeCsv(
         const rawValue = shot.metrics[metric] ?? "";
 
         if (typeof rawValue === "string" || typeof rawValue === "number") {
-          row[colName] = String(normalizeMetricValue(rawValue, metric, unitSystem, unitChoice));
+          const normalizedValue = normalizeMetricValue(rawValue, metric, unitSystem, unitChoice);
+          row[colName] = typeof normalizedValue === "number"
+            ? String(normalizedValue)
+            : neutralizeSpreadsheetFormula(String(normalizedValue));
         } else {
           row[colName] = "";
         }
@@ -175,14 +161,14 @@ export function writeCsv(
         if (shots.length < 2) continue;
 
         const avgRow: Record<string, string> = {
-          Date: session.date,
-          Club: club.club_name,
+          Date: neutralizeSpreadsheetFormula(session.date),
+          Club: neutralizeSpreadsheetFormula(club.club_name),
           "Shot #": "",
           Type: "Average",
         };
 
         if (hasTags(session)) {
-          avgRow.Tag = tag;
+          avgRow.Tag = neutralizeSpreadsheetFormula(tag);
         }
 
         for (const metric of orderedMetrics) {
@@ -249,24 +235,29 @@ export function writeBulkCsv(
     for (const club of session.club_groups) {
       for (const shot of club.shots) {
         const row: Record<string, string> = {
-          "Session Date": session.date,
-          "Report ID": session.report_id,
-          "Activity Type": activityType,
-          Club: club.club_name,
+          "Session Date": neutralizeSpreadsheetFormula(session.date),
+          "Report ID": neutralizeSpreadsheetFormula(session.report_id),
+          "Activity Type": neutralizeSpreadsheetFormula(activityType),
+          Club: neutralizeSpreadsheetFormula(club.club_name),
           "Shot #": String(shot.shot_number + 1),
           Type: "Shot",
         };
 
         if (includeTagColumn) {
-          row.Tag = shot.tag ?? "";
+          row.Tag = neutralizeSpreadsheetFormula(shot.tag ?? "");
         }
 
         for (const metric of orderedMetrics) {
           const colName = getColumnName(metric, unitChoice);
           const rawValue = shot.metrics[metric] ?? "";
-          row[colName] = typeof rawValue === "string" || typeof rawValue === "number"
-            ? String(normalizeMetricValue(rawValue, metric, unitSystem, unitChoice))
-            : "";
+          if (typeof rawValue === "string" || typeof rawValue === "number") {
+            const normalizedValue = normalizeMetricValue(rawValue, metric, unitSystem, unitChoice);
+            row[colName] = typeof normalizedValue === "number"
+              ? String(normalizedValue)
+              : neutralizeSpreadsheetFormula(String(normalizedValue));
+          } else {
+            row[colName] = "";
+          }
         }
 
         rows.push(row);
@@ -284,16 +275,16 @@ export function writeBulkCsv(
           if (shots.length < 2) continue;
 
           const avgRow: Record<string, string> = {
-            "Session Date": session.date,
-            "Report ID": session.report_id,
-            "Activity Type": activityType,
-            Club: club.club_name,
+            "Session Date": neutralizeSpreadsheetFormula(session.date),
+            "Report ID": neutralizeSpreadsheetFormula(session.report_id),
+            "Activity Type": neutralizeSpreadsheetFormula(activityType),
+            Club: neutralizeSpreadsheetFormula(club.club_name),
             "Shot #": "",
             Type: "Average",
           };
 
           if (includeTagColumn) {
-            avgRow.Tag = tag;
+            avgRow.Tag = neutralizeSpreadsheetFormula(tag);
           }
 
           for (const metric of orderedMetrics) {

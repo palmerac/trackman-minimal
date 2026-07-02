@@ -96,11 +96,10 @@ export async function clearBulkImportedSessions(jobId: string): Promise<void> {
   try {
     const tx = db.transaction(SESSION_STORE, "readwrite");
     const index = tx.objectStore(SESSION_STORE).index(JOB_INDEX);
-    const transactionDone = new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
-      tx.onabort = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
-    });
+    const { promise: transactionDone, resolve, reject } = Promise.withResolvers<void>();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
+    tx.onabort = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
     const records = await requestToPromise(index.getAllKeys(jobId));
     for (const key of records) {
       tx.objectStore(SESSION_STORE).delete(key);
@@ -109,4 +108,13 @@ export async function clearBulkImportedSessions(jobId: string): Promise<void> {
   } finally {
     db.close();
   }
+}
+
+export function clearAllBulkImportedSessions(): Promise<void> {
+  const { promise, resolve, reject } = Promise.withResolvers<void>();
+  const request = indexedDB.deleteDatabase(DB_NAME);
+  request.onsuccess = () => resolve();
+  request.onerror = () => reject(request.error ?? new Error("Could not clear bulk import store"));
+  request.onblocked = () => reject(new Error("Could not clear bulk import store while it is in use"));
+  return promise;
 }

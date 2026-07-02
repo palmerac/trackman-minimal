@@ -14,29 +14,16 @@ import {
   DEFAULT_UNIT_CHOICE,
   type UnitChoice,
 } from "./unit_normalization";
-import { METRIC_DISPLAY_NAMES } from "./constants";
+import { METRIC_COLUMN_ORDER, METRIC_DISPLAY_NAMES } from "./metric_catalog";
+import { neutralizeSpreadsheetFormula } from "./spreadsheet_safety";
 
-const METRIC_COLUMN_ORDER: string[] = [
-  // Speed & Efficiency
-  "ClubSpeed", "BallSpeed", "SmashFactor",
-  // Club Delivery
-  "AttackAngle", "ClubPath", "FaceAngle", "FaceToPath", "SwingDirection", "DynamicLoft",
-  // Launch & Spin
-  "LaunchAngle", "LaunchDirection", "SpinRate", "SpinAxis", "SpinLoft",
-  // Distance
-  "Carry", "Total",
-  // Dispersion
-  "Side", "SideTotal", "CarrySide", "TotalSide", "Curve",
-  // Ball Flight
-  "Height", "MaxHeight", "LandingAngle", "HangTime",
-  // Impact
-  "LowPointDistance", "ImpactHeight", "ImpactOffset",
-  // Other
-  "Tempo",
-];
 
 export function escapeTsvField(value: string): string {
   return value.replace(/\t/g, " ").replace(/[\n\r]/g, " ");
+}
+
+function escapeTsvTextField(value: string): string {
+  return escapeTsvField(neutralizeSpreadsheetFormula(value));
 }
 
 export function getDisplayName(metric: string): string {
@@ -51,7 +38,7 @@ export function getColumnName(metric: string, unitChoice: UnitChoice): string {
 
 export function orderMetricsByPriority(
   allMetrics: string[],
-  priorityOrder: string[]
+  priorityOrder: readonly string[]
 ): string[] {
   const result: string[] = [];
   const seen = new Set<string>();
@@ -108,11 +95,11 @@ export function writeTsv(
   for (const club of session.club_groups) {
     for (const shot of club.shots) {
       const fields: string[] = [
-        escapeTsvField(session.date),
-        escapeTsvField(club.club_name),
+        escapeTsvTextField(session.date),
+        escapeTsvTextField(club.club_name),
       ];
       if (includeTag) {
-        fields.push(escapeTsvField(shot.tag ?? ""));
+        fields.push(escapeTsvTextField(shot.tag ?? ""));
       }
       fields.push(escapeTsvField(String(shot.shot_number + 1)));
 
@@ -121,7 +108,10 @@ export function writeTsv(
 
         let fieldValue: string;
         if (typeof rawValue === "string" || typeof rawValue === "number") {
-          fieldValue = String(normalizeMetricValue(rawValue, metric, unitSystem, unitChoice));
+          const normalizedValue = normalizeMetricValue(rawValue, metric, unitSystem, unitChoice);
+          fieldValue = typeof normalizedValue === "number"
+            ? String(normalizedValue)
+            : neutralizeSpreadsheetFormula(String(normalizedValue));
         } else {
           fieldValue = "";
         }
@@ -133,7 +123,7 @@ export function writeTsv(
     }
   }
 
-  const headerRow = headerFields.map(escapeTsvField).join("\t");
+  const headerRow = headerFields.map(escapeTsvTextField).join("\t");
 
   const parts: string[] = [];
   if (hittingSurface !== undefined) {

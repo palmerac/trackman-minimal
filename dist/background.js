@@ -1,16 +1,66 @@
+"use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __esm = (fn, res) => function __init() {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
+    }
   };
   var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
   };
 
-  // src/shared/constants.ts
-  var METRIC_DISPLAY_NAMES, STORAGE_KEYS;
-  var init_constants = __esm({
-    "src/shared/constants.ts"() {
+  // src/shared/metric_catalog.ts
+  var METRIC_COLUMN_ORDER, METRIC_DISPLAY_NAMES, GRAPHQL_METRIC_ALIAS, DISTANCE_METRICS, SMALL_DISTANCE_METRICS, MILLIMETER_METRICS, ANGLE_METRICS, SPEED_METRICS, FIXED_UNIT_LABELS;
+  var init_metric_catalog = __esm({
+    "src/shared/metric_catalog.ts"() {
+      "use strict";
+      METRIC_COLUMN_ORDER = [
+        // Speed & Efficiency
+        "ClubSpeed",
+        "BallSpeed",
+        "SmashFactor",
+        // Club Delivery
+        "AttackAngle",
+        "ClubPath",
+        "FaceAngle",
+        "FaceToPath",
+        "SwingDirection",
+        "DynamicLoft",
+        // Launch & Spin
+        "LaunchAngle",
+        "LaunchDirection",
+        "SpinRate",
+        "SpinAxis",
+        "SpinLoft",
+        // Distance
+        "Carry",
+        "Total",
+        // Dispersion
+        "Side",
+        "SideTotal",
+        "CarrySide",
+        "TotalSide",
+        "Curve",
+        // Ball Flight
+        "Height",
+        "MaxHeight",
+        "LandingAngle",
+        "HangTime",
+        // Impact
+        "LowPointDistance",
+        "ImpactHeight",
+        "ImpactOffset",
+        // Other
+        "Tempo"
+      ];
       METRIC_DISPLAY_NAMES = {
         ClubSpeed: "Club Speed",
         BallSpeed: "Ball Speed",
@@ -42,6 +92,87 @@
         ImpactOffset: "Impact Offset",
         Tempo: "Tempo"
       };
+      GRAPHQL_METRIC_ALIAS = {
+        clubSpeed: "ClubSpeed",
+        ballSpeed: "BallSpeed",
+        smashFactor: "SmashFactor",
+        attackAngle: "AttackAngle",
+        clubPath: "ClubPath",
+        faceAngle: "FaceAngle",
+        faceToPath: "FaceToPath",
+        swingDirection: "SwingDirection",
+        swingPlane: "SwingPlane",
+        dynamicLoft: "DynamicLoft",
+        spinRate: "SpinRate",
+        ballSpin: "SpinRate",
+        spinAxis: "SpinAxis",
+        spinLoft: "SpinLoft",
+        launchAngle: "LaunchAngle",
+        launchDirection: "LaunchDirection",
+        carry: "Carry",
+        total: "Total",
+        side: "Side",
+        sideTotal: "SideTotal",
+        carrySide: "CarrySide",
+        totalSide: "TotalSide",
+        height: "Height",
+        maxHeight: "MaxHeight",
+        curve: "Curve",
+        landingAngle: "LandingAngle",
+        hangTime: "HangTime",
+        lowPointDistance: "LowPointDistance",
+        impactHeight: "ImpactHeight",
+        impactOffset: "ImpactOffset",
+        tempo: "Tempo"
+      };
+      DISTANCE_METRICS = {
+        Carry: true,
+        Total: true,
+        Side: true,
+        SideTotal: true,
+        CarrySide: true,
+        TotalSide: true,
+        Height: true,
+        MaxHeight: true,
+        Curve: true
+      };
+      SMALL_DISTANCE_METRICS = {
+        LowPointDistance: true
+      };
+      MILLIMETER_METRICS = {
+        ImpactHeight: true,
+        ImpactOffset: true
+      };
+      ANGLE_METRICS = {
+        AttackAngle: true,
+        ClubPath: true,
+        FaceAngle: true,
+        FaceToPath: true,
+        DynamicLoft: true,
+        LaunchAngle: true,
+        LaunchDirection: true,
+        LandingAngle: true
+      };
+      SPEED_METRICS = {
+        ClubSpeed: true,
+        BallSpeed: true
+      };
+      FIXED_UNIT_LABELS = {
+        SpinRate: "rpm",
+        HangTime: "s",
+        Tempo: "s",
+        ImpactHeight: "mm",
+        ImpactOffset: "mm"
+      };
+    }
+  });
+
+  // src/shared/constants.ts
+  var STORAGE_KEYS;
+  var init_constants = __esm({
+    "src/shared/constants.ts"() {
+      "use strict";
+      init_metric_catalog();
       STORAGE_KEYS = {
         TRACKMAN_DATA: "trackmanData",
         SPEED_UNIT: "speedUnit",
@@ -100,10 +231,10 @@
   }
   function getMetricUnitLabel(metricName, unitChoice = DEFAULT_UNIT_CHOICE) {
     if (metricName in FIXED_UNIT_LABELS) return FIXED_UNIT_LABELS[metricName];
-    if (SPEED_METRICS.has(metricName)) return SPEED_LABELS[unitChoice.speed];
-    if (SMALL_DISTANCE_METRICS.has(metricName)) return SMALL_DISTANCE_LABELS[getSmallDistanceUnit(unitChoice)];
-    if (DISTANCE_METRICS.has(metricName)) return DISTANCE_LABELS[unitChoice.distance];
-    if (ANGLE_METRICS.has(metricName)) return "\xB0";
+    if (metricName in SPEED_METRICS) return SPEED_LABELS[unitChoice.speed];
+    if (metricName in SMALL_DISTANCE_METRICS) return SMALL_DISTANCE_LABELS[getSmallDistanceUnit(unitChoice)];
+    if (metricName in DISTANCE_METRICS) return DISTANCE_LABELS[unitChoice.distance];
+    if (metricName in ANGLE_METRICS) return "\xB0";
     return "";
   }
   function convertDistance(value, fromUnit, toUnit) {
@@ -154,26 +285,26 @@
     const numValue = parseNumericValue(value);
     if (numValue === null) return value;
     let converted;
-    if (MILLIMETER_METRICS.has(metricName)) {
+    if (metricName in MILLIMETER_METRICS) {
       converted = convertMillimeters(numValue);
-    } else if (SMALL_DISTANCE_METRICS.has(metricName)) {
+    } else if (metricName in SMALL_DISTANCE_METRICS) {
       converted = convertSmallDistance(
         numValue,
         getSmallDistanceUnit(unitChoice)
       );
-    } else if (DISTANCE_METRICS.has(metricName)) {
+    } else if (metricName in DISTANCE_METRICS) {
       converted = convertDistance(
         numValue,
         reportUnitSystem.distanceUnit,
         unitChoice.distance
       );
-    } else if (ANGLE_METRICS.has(metricName)) {
+    } else if (metricName in ANGLE_METRICS) {
       converted = convertAngle(
         numValue,
         reportUnitSystem.angleUnit,
         "degrees"
       );
-    } else if (SPEED_METRICS.has(metricName)) {
+    } else if (metricName in SPEED_METRICS) {
       converted = convertSpeed(
         numValue,
         reportUnitSystem.speedUnit,
@@ -183,7 +314,7 @@
       converted = numValue;
     }
     if (metricName === "SpinRate") return Math.round(converted);
-    if (MILLIMETER_METRICS.has(metricName)) return Math.round(converted);
+    if (metricName in MILLIMETER_METRICS) return Math.round(converted);
     if (metricName === "SmashFactor" || metricName === "Tempo")
       return Math.round(converted * 100) / 100;
     return Math.round(converted * 10) / 10;
@@ -194,9 +325,12 @@
     const parsed = parseFloat(value);
     return isNaN(parsed) ? null : parsed;
   }
-  var DEFAULT_UNIT_CHOICE, UNIT_SYSTEMS, DISTANCE_METRICS, SMALL_DISTANCE_METRICS, MILLIMETER_METRICS, ANGLE_METRICS, SPEED_METRICS, DEFAULT_UNIT_SYSTEM, SPEED_LABELS, DISTANCE_LABELS, SMALL_DISTANCE_LABELS, FIXED_UNIT_LABELS;
+  var DEFAULT_UNIT_CHOICE, UNIT_SYSTEMS, DEFAULT_UNIT_SYSTEM, SPEED_LABELS, DISTANCE_LABELS, SMALL_DISTANCE_LABELS;
   var init_unit_normalization = __esm({
     "src/shared/unit_normalization.ts"() {
+      "use strict";
+      init_metric_catalog();
+      init_metric_catalog();
       DEFAULT_UNIT_CHOICE = { speed: "mph", distance: "yards" };
       UNIT_SYSTEMS = {
         // Imperial (yards, degrees) - most common
@@ -224,38 +358,6 @@
           speedUnit: "km/h"
         }
       };
-      DISTANCE_METRICS = /* @__PURE__ */ new Set([
-        "Carry",
-        "Total",
-        "Side",
-        "SideTotal",
-        "CarrySide",
-        "TotalSide",
-        "Height",
-        "MaxHeight",
-        "Curve"
-      ]);
-      SMALL_DISTANCE_METRICS = /* @__PURE__ */ new Set([
-        "LowPointDistance"
-      ]);
-      MILLIMETER_METRICS = /* @__PURE__ */ new Set([
-        "ImpactHeight",
-        "ImpactOffset"
-      ]);
-      ANGLE_METRICS = /* @__PURE__ */ new Set([
-        "AttackAngle",
-        "ClubPath",
-        "FaceAngle",
-        "FaceToPath",
-        "DynamicLoft",
-        "LaunchAngle",
-        "LaunchDirection",
-        "LandingAngle"
-      ]);
-      SPEED_METRICS = /* @__PURE__ */ new Set([
-        "ClubSpeed",
-        "BallSpeed"
-      ]);
       DEFAULT_UNIT_SYSTEM = UNIT_SYSTEMS["789012"];
       SPEED_LABELS = {
         "mph": "mph",
@@ -269,12 +371,25 @@
         "inches": "in",
         "cm": "cm"
       };
-      FIXED_UNIT_LABELS = {
-        SpinRate: "rpm",
-        HangTime: "s",
-        Tempo: "s",
-        ImpactHeight: "mm",
-        ImpactOffset: "mm"
+    }
+  });
+
+  // src/shared/spreadsheet_safety.ts
+  function neutralizeSpreadsheetFormula(value) {
+    if (value.length === 0) return value;
+    return SPREADSHEET_FORMULA_PREFIXES[value[0]] === true ? `'${value}` : value;
+  }
+  var SPREADSHEET_FORMULA_PREFIXES;
+  var init_spreadsheet_safety = __esm({
+    "src/shared/spreadsheet_safety.ts"() {
+      "use strict";
+      SPREADSHEET_FORMULA_PREFIXES = {
+        "=": true,
+        "+": true,
+        "-": true,
+        "@": true,
+        "	": true,
+        "\r": true
       };
     }
   });
@@ -310,7 +425,7 @@
     );
   }
   function escapeCsvValue(value) {
-    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;
@@ -320,7 +435,7 @@
     if (hittingSurface !== void 0) {
       lines.push(`Hitting Surface: ${hittingSurface}`);
     }
-    lines.push(headerRow.join(","));
+    lines.push(headerRow.map((col) => escapeCsvValue(neutralizeSpreadsheetFormula(col))).join(","));
     for (const row of rows) {
       lines.push(
         headerRow.map((col) => escapeCsvValue(row[col] ?? "")).join(",")
@@ -346,19 +461,20 @@
     for (const club of session.club_groups) {
       for (const shot of club.shots) {
         const row = {
-          Date: session.date,
-          Club: club.club_name,
+          Date: neutralizeSpreadsheetFormula(session.date),
+          Club: neutralizeSpreadsheetFormula(club.club_name),
           "Shot #": String(shot.shot_number + 1),
           Type: "Shot"
         };
         if (hasTags(session)) {
-          row.Tag = shot.tag ?? "";
+          row.Tag = neutralizeSpreadsheetFormula(shot.tag ?? "");
         }
         for (const metric of orderedMetrics) {
           const colName = getColumnName(metric, unitChoice);
           const rawValue = shot.metrics[metric] ?? "";
           if (typeof rawValue === "string" || typeof rawValue === "number") {
-            row[colName] = String(normalizeMetricValue(rawValue, metric, unitSystem, unitChoice));
+            const normalizedValue = normalizeMetricValue(rawValue, metric, unitSystem, unitChoice);
+            row[colName] = typeof normalizedValue === "number" ? String(normalizedValue) : neutralizeSpreadsheetFormula(String(normalizedValue));
           } else {
             row[colName] = "";
           }
@@ -375,13 +491,13 @@
         for (const [tag, shots] of tagGroups) {
           if (shots.length < 2) continue;
           const avgRow = {
-            Date: session.date,
-            Club: club.club_name,
+            Date: neutralizeSpreadsheetFormula(session.date),
+            Club: neutralizeSpreadsheetFormula(club.club_name),
             "Shot #": "",
             Type: "Average"
           };
           if (hasTags(session)) {
-            avgRow.Tag = tag;
+            avgRow.Tag = neutralizeSpreadsheetFormula(tag);
           }
           for (const metric of orderedMetrics) {
             const colName = getColumnName(metric, unitChoice);
@@ -401,50 +517,12 @@
     }
     return createCsvLines(headerRow, rows, hittingSurface);
   }
-  var METRIC_COLUMN_ORDER;
   var init_csv_writer = __esm({
     "src/shared/csv_writer.ts"() {
+      "use strict";
       init_unit_normalization();
-      init_constants();
-      METRIC_COLUMN_ORDER = [
-        // Speed & Efficiency
-        "ClubSpeed",
-        "BallSpeed",
-        "SmashFactor",
-        // Club Delivery
-        "AttackAngle",
-        "ClubPath",
-        "FaceAngle",
-        "FaceToPath",
-        "SwingDirection",
-        "DynamicLoft",
-        // Launch & Spin
-        "LaunchAngle",
-        "LaunchDirection",
-        "SpinRate",
-        "SpinAxis",
-        "SpinLoft",
-        // Distance
-        "Carry",
-        "Total",
-        // Dispersion
-        "Side",
-        "SideTotal",
-        "CarrySide",
-        "TotalSide",
-        "Curve",
-        // Ball Flight
-        "Height",
-        "MaxHeight",
-        "LandingAngle",
-        "HangTime",
-        // Impact
-        "LowPointDistance",
-        "ImpactHeight",
-        "ImpactOffset",
-        // Other
-        "Tempo"
-      ];
+      init_metric_catalog();
+      init_spreadsheet_safety();
     }
   });
 
@@ -494,6 +572,7 @@
   var MAX_SESSIONS;
   var init_history = __esm({
     "src/shared/history.ts"() {
+      "use strict";
       init_constants();
       MAX_SESSIONS = 20;
     }
@@ -617,42 +696,10 @@
       return null;
     }
   }
-  var GRAPHQL_METRIC_ALIAS;
   var init_portal_parser = __esm({
     "src/shared/portal_parser.ts"() {
-      GRAPHQL_METRIC_ALIAS = {
-        clubSpeed: "ClubSpeed",
-        ballSpeed: "BallSpeed",
-        smashFactor: "SmashFactor",
-        attackAngle: "AttackAngle",
-        clubPath: "ClubPath",
-        faceAngle: "FaceAngle",
-        faceToPath: "FaceToPath",
-        swingDirection: "SwingDirection",
-        swingPlane: "SwingPlane",
-        dynamicLoft: "DynamicLoft",
-        spinRate: "SpinRate",
-        ballSpin: "SpinRate",
-        spinAxis: "SpinAxis",
-        spinLoft: "SpinLoft",
-        launchAngle: "LaunchAngle",
-        launchDirection: "LaunchDirection",
-        carry: "Carry",
-        total: "Total",
-        side: "Side",
-        sideTotal: "SideTotal",
-        carrySide: "CarrySide",
-        totalSide: "TotalSide",
-        height: "Height",
-        maxHeight: "MaxHeight",
-        curve: "Curve",
-        landingAngle: "LandingAngle",
-        hangTime: "HangTime",
-        lowPointDistance: "LowPointDistance",
-        impactHeight: "ImpactHeight",
-        impactOffset: "ImpactOffset",
-        tempo: "Tempo"
-      };
+      "use strict";
+      init_metric_catalog();
     }
   });
 
@@ -705,10 +752,58 @@
   var DB_NAME, DB_VERSION, SESSION_STORE, JOB_INDEX;
   var init_bulk_import_store = __esm({
     "src/shared/bulk_import_store.ts"() {
+      "use strict";
       DB_NAME = "trackpull-bulk-import";
       DB_VERSION = 1;
       SESSION_STORE = "sessions";
       JOB_INDEX = "jobId";
+    }
+  });
+
+  // src/shared/runtime_messages.ts
+  function isRecord2(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  function isStringRecord(value) {
+    return isRecord2(value) && Object.values(value).every((entry) => typeof entry === "string");
+  }
+  function isMinimalClubGroup(value) {
+    if (!isRecord2(value)) return false;
+    return typeof value.club_name === "string" && Array.isArray(value.shots) && isRecord2(value.averages) && isRecord2(value.consistency);
+  }
+  function isMinimalSessionData(value) {
+    if (!isRecord2(value)) return false;
+    return typeof value.date === "string" && typeof value.report_id === "string" && (value.url_type === "report" || value.url_type === "activity") && Array.isArray(value.club_groups) && value.club_groups.every(isMinimalClubGroup) && Array.isArray(value.metric_names) && value.metric_names.every((metric) => typeof metric === "string") && isStringRecord(value.metadata_params);
+  }
+  function originFromUrl(urlValue) {
+    if (!urlValue) return null;
+    try {
+      return new URL(urlValue).origin;
+    } catch {
+      return null;
+    }
+  }
+  function isAllowedReportOrigin(origin) {
+    return originFromUrl(origin) === REPORT_PAGE_ORIGIN;
+  }
+  function isAllowedReportRuntimeSender(sender) {
+    const senderWithOrigin = sender;
+    return isAllowedReportOrigin(senderWithOrigin.origin) || isAllowedReportOrigin(sender.url) || isAllowedReportOrigin(sender.tab?.url);
+  }
+  var REPORT_PAGE_ORIGIN, RUNTIME_MESSAGE_TYPES;
+  var init_runtime_messages = __esm({
+    "src/shared/runtime_messages.ts"() {
+      "use strict";
+      REPORT_PAGE_ORIGIN = "https://web-dynamic-reports.trackmangolf.com";
+      RUNTIME_MESSAGE_TYPES = {
+        SAVE_DATA: "SAVE_DATA",
+        EXPORT_CSV_REQUEST: "EXPORT_CSV_REQUEST",
+        SAVE_IMPORTED_SESSION: "SAVE_IMPORTED_SESSION",
+        SAVE_BULK_IMPORTED_SESSION: "SAVE_BULK_IMPORTED_SESSION",
+        PORTAL_GRAPHQL_FETCH: "PORTAL_GRAPHQL_FETCH",
+        HISTORY_ERROR: "HISTORY_ERROR",
+        DATA_UPDATED: "DATA_UPDATED"
+      };
     }
   });
 
@@ -721,6 +816,7 @@
       init_history();
       init_portal_parser();
       init_bulk_import_store();
+      init_runtime_messages();
       chrome.runtime.onInstalled.addListener(() => {
         console.log("TrackPull extension installed");
       });
@@ -746,8 +842,16 @@
         return null;
       }
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === "SAVE_DATA") {
+        if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_DATA) {
           const sessionData = message.data;
+          if (!isAllowedReportRuntimeSender(sender)) {
+            sendResponse({ success: false, error: "Untrusted report page sender" });
+            return false;
+          }
+          if (!isMinimalSessionData(sessionData)) {
+            sendResponse({ success: false, error: "Invalid session data" });
+            return false;
+          }
           chrome.storage.local.set({ [STORAGE_KEYS.TRACKMAN_DATA]: sessionData }, () => {
             if (chrome.runtime.lastError) {
               console.error("TrackPull: Failed to save data:", chrome.runtime.lastError);
@@ -758,14 +862,14 @@
               saveSessionToHistory(sessionData).catch((err) => {
                 console.error("TrackPull: History save failed:", err);
                 const msg = getHistoryErrorMessage(err.message);
-                chrome.runtime.sendMessage({ type: "HISTORY_ERROR", error: msg }).catch(() => {
+                chrome.runtime.sendMessage({ type: RUNTIME_MESSAGE_TYPES.HISTORY_ERROR, error: msg }).catch(() => {
                 });
               });
             }
           });
           return true;
         }
-        if (message.type === "EXPORT_CSV_REQUEST") {
+        if (message.type === RUNTIME_MESSAGE_TYPES.EXPORT_CSV_REQUEST) {
           chrome.storage.local.get([STORAGE_KEYS.TRACKMAN_DATA, STORAGE_KEYS.SPEED_UNIT, STORAGE_KEYS.DISTANCE_UNIT, STORAGE_KEYS.HITTING_SURFACE, STORAGE_KEYS.INCLUDE_AVERAGES, "unitPreference"], (result) => {
             const data = result[STORAGE_KEYS.TRACKMAN_DATA];
             if (!data || !data.club_groups || data.club_groups.length === 0) {
@@ -797,7 +901,7 @@
                 (downloadId) => {
                   if (chrome.runtime.lastError) {
                     console.error("TrackPull: Download failed:", chrome.runtime.lastError);
-                    const errorMessage = getDownloadErrorMessage(chrome.runtime.lastError.message);
+                    const errorMessage = getDownloadErrorMessage(chrome.runtime.lastError.message ?? "Download failed");
                     sendResponse({ success: false, error: errorMessage });
                   } else {
                     console.log(`TrackPull: CSV exported with download ID ${downloadId}`);
@@ -812,7 +916,7 @@
           });
           return true;
         }
-        if (message.type === "SAVE_IMPORTED_SESSION") {
+        if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_IMPORTED_SESSION) {
           const { graphqlData, graphqlPayloads } = message;
           sendResponse({ success: true });
           (async () => {
@@ -841,7 +945,7 @@
           })();
           return false;
         }
-        if (message.type === "SAVE_BULK_IMPORTED_SESSION") {
+        if (message.type === RUNTIME_MESSAGE_TYPES.SAVE_BULK_IMPORTED_SESSION) {
           const { jobId, activityId, graphqlPayloads } = message;
           (async () => {
             try {
@@ -856,7 +960,6 @@
                 sendResponse({ success: false, error: "No shot data found for this activity" });
                 return;
               }
-              await chrome.storage.local.set({ [STORAGE_KEYS.TRACKMAN_DATA]: session });
               await saveSessionToHistory(session);
               await putBulkImportedSession(jobId, activityId, session);
               const shotCount = session.club_groups.reduce(
@@ -879,7 +982,7 @@
       chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === "local" && changes[STORAGE_KEYS.TRACKMAN_DATA]) {
           const newValue = changes[STORAGE_KEYS.TRACKMAN_DATA].newValue;
-          chrome.runtime.sendMessage({ type: "DATA_UPDATED", data: newValue }).catch(() => {
+          chrome.runtime.sendMessage({ type: RUNTIME_MESSAGE_TYPES.DATA_UPDATED, data: newValue }).catch(() => {
           });
         }
       });

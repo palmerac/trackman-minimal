@@ -7,15 +7,15 @@
 [![Tests](https://github.com/criticalberne/TrackPull/actions/workflows/tests.yml/badge.svg)](https://github.com/criticalberne/TrackPull/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Grab your Trackman data and actually do something with it. Export to CSV, paste into a spreadsheet, or send it straight to ChatGPT/Claude/Gemini for analysis, all from one Chrome extension.
+Grab your Trackman data and actually do something with it. Export to CSV, paste into a spreadsheet, or copy a ready-to-paste prompt for ChatGPT/Claude/Gemini, all from one Chrome extension.
 
 ## What it does
 
 - Opens a Trackman report? Data's already captured
 - **Import from Portal**: browse Course Play and Map My Bag sessions from portal.trackmangolf.com, including older activity history without report links
 - Export as CSV or copy tab-separated values straight into Google Sheets
-- One click to launch AI analysis with your data and a golf prompt (ChatGPT, Claude, or Gemini)
-- Preview the full prompt and data before sending to AI
+- Copy a ready-to-paste AI prompt, then open ChatGPT, Claude, or Gemini for manual paste
+- Preview the full prompt and data before copying it
 - 8 built-in prompts from beginner to advanced, plus custom templates you create
 - Pick your units (mph or m/s, yards or meters) and hitting surface (mat or grass)
 - Toggle averages on or off in exports, raw shots only when you want them
@@ -55,9 +55,9 @@ Grab your Trackman data and actually do something with it. Export to CSV, paste 
 3. Pick what you want to do:
    - **Export CSV**: downloads a file with your data
    - **Copy TSV**: pastes right into spreadsheets
-   - **Open in AI**: launches ChatGPT, Claude, or Gemini with a prompt and your data
-   - **Copy Prompt + Data**: for pasting into any AI chat manually
-4. Expand **Prompt Preview** to inspect exactly what's being sent before you click
+   - **Copy data & open AI**: copies the prompt and shot data to your clipboard, then opens ChatGPT, Claude, or Gemini for you to paste manually
+   - **Copy prompt + data**: copies the same ready-to-paste text without opening an AI site
+4. Expand **Prompt Preview** to inspect exactly what will be copied before you click
 
 Your hitting surface (mat/grass) is tagged in every export and prompt so the AI knows what it's working with. Uncheck "Include averages" if you just want raw shot rows.
 
@@ -79,13 +79,13 @@ Got old sessions on portal.trackmangolf.com that never got a report link? You ca
 2. Click **Grant Access** in the TrackPull popup (one-time)
 3. Go to `portal.trackmangolf.com/player/activities`
 4. Open TrackPull and use the **Course Play and Map My Bag sessions** list
-5. Click **Import** next to the session you want, then export CSV, copy TSV, or send it to AI
+5. Click **Import** next to the session you want, then export CSV, copy TSV, or copy data and open an AI site for manual paste
 
 TrackPull filters the portal list to Course Play and Map My Bag sessions, shows the activity date, and shows the course name when Trackman provides it. The importer paginates through your supported portal history instead of only showing recent activity cards.
 
 For historical backfills, select multiple sessions and click **Import selected**, or click **Import all** for every supported session TrackPull found. Bulk import saves each completed session as it finishes, shows imported and failed counts, can pause and resume, and lets you retry only failed sessions. Use **Export CSV** in the bulk import panel to download one combined CSV with session date, report ID, activity type, club, shot number, and metrics.
 
-You can still import from an individual portal activity URL when one is available. The shot data loads into TrackPull just like a report. Export, copy, or send to AI from there. Your data was never lost, just hard to get to.
+You can still import from an individual portal activity URL when one is available. The shot data loads into TrackPull just like a report. Export, copy, or copy data and open an AI site from there. Your data was never lost, just hard to get to.
 
 ## CSV columns
 
@@ -104,7 +104,7 @@ Columns are grouped so you can scan without hunting:
 
 ## AI prompts
 
-Select a prompt from the popup and click **Open in AI**, your data goes with it. You can also build your own in the options page.
+Select a prompt from the popup and click **Copy data & open AI**. TrackPull copies the prompt and shot data to your clipboard, opens your chosen AI site, and leaves you in control of pasting it. You can also build your own templates in the options page; each custom template must include `{{DATA}}` where the shot data should go.
 
 ### Beginner
 - [Understanding Your Numbers](prompts/beginner/understanding-your-numbers.md): what each metric means and how yours compare

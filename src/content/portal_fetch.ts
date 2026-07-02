@@ -15,6 +15,11 @@ import {
   type PortalGraphQLRequestMessage,
   type PortalGraphQLResponseMessage,
 } from "./portal_bridge_protocol";
+import {
+  RUNTIME_MESSAGE_TYPES,
+  type PortalGraphQLFetchRequest,
+} from "../shared/runtime_messages";
+import { validatePortalGraphQLRequest } from "../shared/portal_graphql_allowlist";
 
 export { findTrackmanAuthTokenFromStorage } from "./portal_auth";
 
@@ -93,6 +98,11 @@ async function fetchGraphQL(
   query: string,
   variables?: Record<string, unknown>
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  const validation = validatePortalGraphQLRequest(query, variables);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
+  }
+
   const mainWorldResponse = await fetchGraphQLFromMainWorld(query, variables);
   if (mainWorldResponse.success || mainWorldResponse.error !== "Portal page bridge timed out") {
     return mainWorldResponse;
@@ -102,9 +112,14 @@ async function fetchGraphQL(
 }
 
 function registerPortalFetchListener(): void {
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message.type === "PORTAL_GRAPHQL_FETCH") {
+  chrome.runtime.onMessage.addListener((message: Partial<PortalGraphQLFetchRequest>, _sender, sendResponse) => {
+    if (message.type === RUNTIME_MESSAGE_TYPES.PORTAL_GRAPHQL_FETCH) {
       const { query, variables } = message;
+      const validation = validatePortalGraphQLRequest(query, variables);
+      if (!validation.ok || typeof query !== "string") {
+        sendResponse({ success: false, error: validation.error ?? "Invalid GraphQL query" });
+        return false;
+      }
       fetchGraphQL(query, variables)
         .then((response) => sendResponse(response))
         .catch((err) => sendResponse({ success: false, error: err.message }));

@@ -1,5 +1,45 @@
+"use strict";
 (() => {
-  // src/shared/constants.ts
+  // src/shared/metric_catalog.ts
+  var METRIC_COLUMN_ORDER = [
+    // Speed & Efficiency
+    "ClubSpeed",
+    "BallSpeed",
+    "SmashFactor",
+    // Club Delivery
+    "AttackAngle",
+    "ClubPath",
+    "FaceAngle",
+    "FaceToPath",
+    "SwingDirection",
+    "DynamicLoft",
+    // Launch & Spin
+    "LaunchAngle",
+    "LaunchDirection",
+    "SpinRate",
+    "SpinAxis",
+    "SpinLoft",
+    // Distance
+    "Carry",
+    "Total",
+    // Dispersion
+    "Side",
+    "SideTotal",
+    "CarrySide",
+    "TotalSide",
+    "Curve",
+    // Ball Flight
+    "Height",
+    "MaxHeight",
+    "LandingAngle",
+    "HangTime",
+    // Impact
+    "LowPointDistance",
+    "ImpactHeight",
+    "ImpactOffset",
+    // Other
+    "Tempo"
+  ];
   var METRIC_DISPLAY_NAMES = {
     ClubSpeed: "Club Speed",
     BallSpeed: "Ball Speed",
@@ -31,6 +71,47 @@
     ImpactOffset: "Impact Offset",
     Tempo: "Tempo"
   };
+  var DISTANCE_METRICS = {
+    Carry: true,
+    Total: true,
+    Side: true,
+    SideTotal: true,
+    CarrySide: true,
+    TotalSide: true,
+    Height: true,
+    MaxHeight: true,
+    Curve: true
+  };
+  var SMALL_DISTANCE_METRICS = {
+    LowPointDistance: true
+  };
+  var MILLIMETER_METRICS = {
+    ImpactHeight: true,
+    ImpactOffset: true
+  };
+  var ANGLE_METRICS = {
+    AttackAngle: true,
+    ClubPath: true,
+    FaceAngle: true,
+    FaceToPath: true,
+    DynamicLoft: true,
+    LaunchAngle: true,
+    LaunchDirection: true,
+    LandingAngle: true
+  };
+  var SPEED_METRICS = {
+    ClubSpeed: true,
+    BallSpeed: true
+  };
+  var FIXED_UNIT_LABELS = {
+    SpinRate: "rpm",
+    HangTime: "s",
+    Tempo: "s",
+    ImpactHeight: "mm",
+    ImpactOffset: "mm"
+  };
+
+  // src/shared/constants.ts
   var CUSTOM_PROMPT_KEY_PREFIX = "customPrompt_";
   var CUSTOM_PROMPT_IDS_KEY = "customPromptIds";
   var STORAGE_KEYS = {
@@ -74,38 +155,6 @@
       speedUnit: "km/h"
     }
   };
-  var DISTANCE_METRICS = /* @__PURE__ */ new Set([
-    "Carry",
-    "Total",
-    "Side",
-    "SideTotal",
-    "CarrySide",
-    "TotalSide",
-    "Height",
-    "MaxHeight",
-    "Curve"
-  ]);
-  var SMALL_DISTANCE_METRICS = /* @__PURE__ */ new Set([
-    "LowPointDistance"
-  ]);
-  var MILLIMETER_METRICS = /* @__PURE__ */ new Set([
-    "ImpactHeight",
-    "ImpactOffset"
-  ]);
-  var ANGLE_METRICS = /* @__PURE__ */ new Set([
-    "AttackAngle",
-    "ClubPath",
-    "FaceAngle",
-    "FaceToPath",
-    "DynamicLoft",
-    "LaunchAngle",
-    "LaunchDirection",
-    "LandingAngle"
-  ]);
-  var SPEED_METRICS = /* @__PURE__ */ new Set([
-    "ClubSpeed",
-    "BallSpeed"
-  ]);
   var DEFAULT_UNIT_SYSTEM = UNIT_SYSTEMS["789012"];
   var SPEED_LABELS = {
     "mph": "mph",
@@ -130,13 +179,6 @@
         return { speed: "mph", distance: "yards" };
     }
   }
-  var FIXED_UNIT_LABELS = {
-    SpinRate: "rpm",
-    HangTime: "s",
-    Tempo: "s",
-    ImpactHeight: "mm",
-    ImpactOffset: "mm"
-  };
   function extractUnitParams(metadataParams) {
     const result = {};
     for (const [key, value] of Object.entries(metadataParams)) {
@@ -168,10 +210,10 @@
   }
   function getMetricUnitLabel(metricName, unitChoice = DEFAULT_UNIT_CHOICE) {
     if (metricName in FIXED_UNIT_LABELS) return FIXED_UNIT_LABELS[metricName];
-    if (SPEED_METRICS.has(metricName)) return SPEED_LABELS[unitChoice.speed];
-    if (SMALL_DISTANCE_METRICS.has(metricName)) return SMALL_DISTANCE_LABELS[getSmallDistanceUnit(unitChoice)];
-    if (DISTANCE_METRICS.has(metricName)) return DISTANCE_LABELS[unitChoice.distance];
-    if (ANGLE_METRICS.has(metricName)) return "\xB0";
+    if (metricName in SPEED_METRICS) return SPEED_LABELS[unitChoice.speed];
+    if (metricName in SMALL_DISTANCE_METRICS) return SMALL_DISTANCE_LABELS[getSmallDistanceUnit(unitChoice)];
+    if (metricName in DISTANCE_METRICS) return DISTANCE_LABELS[unitChoice.distance];
+    if (metricName in ANGLE_METRICS) return "\xB0";
     return "";
   }
   function convertDistance(value, fromUnit, toUnit) {
@@ -222,26 +264,26 @@
     const numValue = parseNumericValue(value);
     if (numValue === null) return value;
     let converted;
-    if (MILLIMETER_METRICS.has(metricName)) {
+    if (metricName in MILLIMETER_METRICS) {
       converted = convertMillimeters(numValue);
-    } else if (SMALL_DISTANCE_METRICS.has(metricName)) {
+    } else if (metricName in SMALL_DISTANCE_METRICS) {
       converted = convertSmallDistance(
         numValue,
         getSmallDistanceUnit(unitChoice)
       );
-    } else if (DISTANCE_METRICS.has(metricName)) {
+    } else if (metricName in DISTANCE_METRICS) {
       converted = convertDistance(
         numValue,
         reportUnitSystem.distanceUnit,
         unitChoice.distance
       );
-    } else if (ANGLE_METRICS.has(metricName)) {
+    } else if (metricName in ANGLE_METRICS) {
       converted = convertAngle(
         numValue,
         reportUnitSystem.angleUnit,
         "degrees"
       );
-    } else if (SPEED_METRICS.has(metricName)) {
+    } else if (metricName in SPEED_METRICS) {
       converted = convertSpeed(
         numValue,
         reportUnitSystem.speedUnit,
@@ -251,7 +293,7 @@
       converted = numValue;
     }
     if (metricName === "SpinRate") return Math.round(converted);
-    if (MILLIMETER_METRICS.has(metricName)) return Math.round(converted);
+    if (metricName in MILLIMETER_METRICS) return Math.round(converted);
     if (metricName === "SmashFactor" || metricName === "Tempo")
       return Math.round(converted * 100) / 100;
     return Math.round(converted * 10) / 10;
@@ -893,11 +935,10 @@
     try {
       const tx = db.transaction(SESSION_STORE, "readwrite");
       const index = tx.objectStore(SESSION_STORE).index(JOB_INDEX);
-      const transactionDone = new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
-        tx.onabort = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
-      });
+      const { promise: transactionDone, resolve, reject } = Promise.withResolvers();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
+      tx.onabort = () => reject(tx.error ?? new Error("Could not clear bulk import store"));
       const records = await requestToPromise(index.getAllKeys(jobId));
       for (const key of records) {
         tx.objectStore(SESSION_STORE).delete(key);
@@ -908,46 +949,21 @@
     }
   }
 
+  // src/shared/spreadsheet_safety.ts
+  var SPREADSHEET_FORMULA_PREFIXES = {
+    "=": true,
+    "+": true,
+    "-": true,
+    "@": true,
+    "	": true,
+    "\r": true
+  };
+  function neutralizeSpreadsheetFormula(value) {
+    if (value.length === 0) return value;
+    return SPREADSHEET_FORMULA_PREFIXES[value[0]] === true ? `'${value}` : value;
+  }
+
   // src/shared/csv_writer.ts
-  var METRIC_COLUMN_ORDER = [
-    // Speed & Efficiency
-    "ClubSpeed",
-    "BallSpeed",
-    "SmashFactor",
-    // Club Delivery
-    "AttackAngle",
-    "ClubPath",
-    "FaceAngle",
-    "FaceToPath",
-    "SwingDirection",
-    "DynamicLoft",
-    // Launch & Spin
-    "LaunchAngle",
-    "LaunchDirection",
-    "SpinRate",
-    "SpinAxis",
-    "SpinLoft",
-    // Distance
-    "Carry",
-    "Total",
-    // Dispersion
-    "Side",
-    "SideTotal",
-    "CarrySide",
-    "TotalSide",
-    "Curve",
-    // Ball Flight
-    "Height",
-    "MaxHeight",
-    "LandingAngle",
-    "HangTime",
-    // Impact
-    "LowPointDistance",
-    "ImpactHeight",
-    "ImpactOffset",
-    // Other
-    "Tempo"
-  ];
   function getDisplayName(metric) {
     return METRIC_DISPLAY_NAMES[metric] ?? metric;
   }
@@ -981,7 +997,7 @@
     return sessions.some(hasTags);
   }
   function escapeCsvValue(value) {
-    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;
@@ -991,7 +1007,7 @@
     if (hittingSurface !== void 0) {
       lines.push(`Hitting Surface: ${hittingSurface}`);
     }
-    lines.push(headerRow.join(","));
+    lines.push(headerRow.map((col) => escapeCsvValue(neutralizeSpreadsheetFormula(col))).join(","));
     for (const row of rows) {
       lines.push(
         headerRow.map((col) => escapeCsvValue(row[col] ?? "")).join(",")
@@ -1023,20 +1039,25 @@
       for (const club of session.club_groups) {
         for (const shot of club.shots) {
           const row = {
-            "Session Date": session.date,
-            "Report ID": session.report_id,
-            "Activity Type": activityType,
-            Club: club.club_name,
+            "Session Date": neutralizeSpreadsheetFormula(session.date),
+            "Report ID": neutralizeSpreadsheetFormula(session.report_id),
+            "Activity Type": neutralizeSpreadsheetFormula(activityType),
+            Club: neutralizeSpreadsheetFormula(club.club_name),
             "Shot #": String(shot.shot_number + 1),
             Type: "Shot"
           };
           if (includeTagColumn) {
-            row.Tag = shot.tag ?? "";
+            row.Tag = neutralizeSpreadsheetFormula(shot.tag ?? "");
           }
           for (const metric of orderedMetrics) {
             const colName = getColumnName(metric, unitChoice);
             const rawValue = shot.metrics[metric] ?? "";
-            row[colName] = typeof rawValue === "string" || typeof rawValue === "number" ? String(normalizeMetricValue(rawValue, metric, unitSystem, unitChoice)) : "";
+            if (typeof rawValue === "string" || typeof rawValue === "number") {
+              const normalizedValue = normalizeMetricValue(rawValue, metric, unitSystem, unitChoice);
+              row[colName] = typeof normalizedValue === "number" ? String(normalizedValue) : neutralizeSpreadsheetFormula(String(normalizedValue));
+            } else {
+              row[colName] = "";
+            }
           }
           rows.push(row);
         }
@@ -1050,15 +1071,15 @@
           for (const [tag, shots] of tagGroups) {
             if (shots.length < 2) continue;
             const avgRow = {
-              "Session Date": session.date,
-              "Report ID": session.report_id,
-              "Activity Type": activityType,
-              Club: club.club_name,
+              "Session Date": neutralizeSpreadsheetFormula(session.date),
+              "Report ID": neutralizeSpreadsheetFormula(session.report_id),
+              "Activity Type": neutralizeSpreadsheetFormula(activityType),
+              Club: neutralizeSpreadsheetFormula(club.club_name),
               "Shot #": "",
               Type: "Average"
             };
             if (includeTagColumn) {
-              avgRow.Tag = tag;
+              avgRow.Tag = neutralizeSpreadsheetFormula(tag);
             }
             for (const metric of orderedMetrics) {
               const colName = getColumnName(metric, unitChoice);
@@ -1081,47 +1102,11 @@
   }
 
   // src/shared/tsv_writer.ts
-  var METRIC_COLUMN_ORDER2 = [
-    // Speed & Efficiency
-    "ClubSpeed",
-    "BallSpeed",
-    "SmashFactor",
-    // Club Delivery
-    "AttackAngle",
-    "ClubPath",
-    "FaceAngle",
-    "FaceToPath",
-    "SwingDirection",
-    "DynamicLoft",
-    // Launch & Spin
-    "LaunchAngle",
-    "LaunchDirection",
-    "SpinRate",
-    "SpinAxis",
-    "SpinLoft",
-    // Distance
-    "Carry",
-    "Total",
-    // Dispersion
-    "Side",
-    "SideTotal",
-    "CarrySide",
-    "TotalSide",
-    "Curve",
-    // Ball Flight
-    "Height",
-    "MaxHeight",
-    "LandingAngle",
-    "HangTime",
-    // Impact
-    "LowPointDistance",
-    "ImpactHeight",
-    "ImpactOffset",
-    // Other
-    "Tempo"
-  ];
   function escapeTsvField(value) {
     return value.replace(/\t/g, " ").replace(/[\n\r]/g, " ");
+  }
+  function escapeTsvTextField(value) {
+    return escapeTsvField(neutralizeSpreadsheetFormula(value));
   }
   function getDisplayName2(metric) {
     return METRIC_DISPLAY_NAMES[metric] ?? metric;
@@ -1155,7 +1140,7 @@
   function writeTsv(session, unitChoice = DEFAULT_UNIT_CHOICE, hittingSurface) {
     const orderedMetrics = orderMetricsByPriority2(
       session.metric_names,
-      METRIC_COLUMN_ORDER2
+      METRIC_COLUMN_ORDER
     );
     const includeTag = hasTags2(session);
     const headerFields = ["Date", "Club"];
@@ -1171,18 +1156,19 @@
     for (const club of session.club_groups) {
       for (const shot of club.shots) {
         const fields = [
-          escapeTsvField(session.date),
-          escapeTsvField(club.club_name)
+          escapeTsvTextField(session.date),
+          escapeTsvTextField(club.club_name)
         ];
         if (includeTag) {
-          fields.push(escapeTsvField(shot.tag ?? ""));
+          fields.push(escapeTsvTextField(shot.tag ?? ""));
         }
         fields.push(escapeTsvField(String(shot.shot_number + 1)));
         for (const metric of orderedMetrics) {
           const rawValue = shot.metrics[metric] ?? "";
           let fieldValue;
           if (typeof rawValue === "string" || typeof rawValue === "number") {
-            fieldValue = String(normalizeMetricValue(rawValue, metric, unitSystem, unitChoice));
+            const normalizedValue = normalizeMetricValue(rawValue, metric, unitSystem, unitChoice);
+            fieldValue = typeof normalizedValue === "number" ? String(normalizedValue) : neutralizeSpreadsheetFormula(String(normalizedValue));
           } else {
             fieldValue = "";
           }
@@ -1191,7 +1177,7 @@
         rows.push(fields.join("	"));
       }
     }
-    const headerRow = headerFields.map(escapeTsvField).join("	");
+    const headerRow = headerFields.map(escapeTsvTextField).join("	");
     const parts = [];
     if (hittingSurface !== void 0) {
       parts.push(`Hitting Surface: ${hittingSurface}`);
@@ -1477,6 +1463,17 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     }
   }
 
+  // src/shared/runtime_messages.ts
+  var RUNTIME_MESSAGE_TYPES = {
+    SAVE_DATA: "SAVE_DATA",
+    EXPORT_CSV_REQUEST: "EXPORT_CSV_REQUEST",
+    SAVE_IMPORTED_SESSION: "SAVE_IMPORTED_SESSION",
+    SAVE_BULK_IMPORTED_SESSION: "SAVE_BULK_IMPORTED_SESSION",
+    PORTAL_GRAPHQL_FETCH: "PORTAL_GRAPHQL_FETCH",
+    HISTORY_ERROR: "HISTORY_ERROR",
+    DATA_UPDATED: "DATA_UPDATED"
+  };
+
   // src/popup/popup.ts
   function computeClubAverage(shots, metricName) {
     const values = shots.map((s) => s.metrics[metricName]).filter((v) => v !== void 0 && v !== "").map((v) => parseFloat(String(v)));
@@ -1519,7 +1516,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   }
   async function fetchPortalGraphQL(tabId, candidate, variables) {
     return chrome.tabs.sendMessage(tabId, {
-      type: "PORTAL_GRAPHQL_FETCH",
+      type: RUNTIME_MESSAGE_TYPES.PORTAL_GRAPHQL_FETCH,
       query: candidate.query,
       variables
     });
@@ -1601,7 +1598,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     let firstError;
     for (const candidate of IMPORT_SESSION_QUERY_CANDIDATES) {
       const fetchResponse = await chrome.tabs.sendMessage(tabId, {
-        type: "PORTAL_GRAPHQL_FETCH",
+        type: RUNTIME_MESSAGE_TYPES.PORTAL_GRAPHQL_FETCH,
         query: candidate.query,
         variables: { id: activityId }
       });
@@ -1646,7 +1643,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
       const graphqlPayloads = await fetchPortalActivityCandidates(tabId, activityId);
       installImportStatusButtonReset(button);
       void chrome.runtime.sendMessage({
-        type: "SAVE_IMPORTED_SESSION",
+        type: RUNTIME_MESSAGE_TYPES.SAVE_IMPORTED_SESSION,
         graphqlPayloads,
         activityId
       }).catch(() => {
@@ -1786,7 +1783,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   function saveBulkImportedSession(jobId, activityId, graphqlPayloads) {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({
-        type: "SAVE_BULK_IMPORTED_SESSION",
+        type: RUNTIME_MESSAGE_TYPES.SAVE_BULK_IMPORTED_SESSION,
         jobId,
         activityId,
         graphqlPayloads
@@ -2463,7 +2460,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           try {
             await navigator.clipboard.writeText(assembled);
             chrome.tabs.create({ url: AI_URLS[selectedService] });
-            showToast(`Prompt + data copied \u2014 paste into ${selectedService}`, "success");
+            showToast(`Prompt + data copied. Paste it into ${selectedService}.`, "success");
           } catch (err) {
             console.error("AI launch failed:", err);
             showToast("Failed to copy prompt", "error");
@@ -2487,7 +2484,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           const assembled = assemblePrompt(prompt, tsvData, metadata);
           try {
             await navigator.clipboard.writeText(assembled);
-            showToast("Prompt + data copied!", "success");
+            showToast("Prompt + data copied to clipboard.", "success");
           } catch (err) {
             console.error("Clipboard write failed:", err);
             showToast("Failed to copy prompt", "error");
@@ -2538,11 +2535,11 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     showStatusMessage("Preparing CSV...", false);
     exportBtn.disabled = true;
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: "EXPORT_CSV_REQUEST" }, (resp) => {
-          resolve(resp || { success: false, error: "No response from service worker" });
-        });
+      const { promise, resolve } = Promise.withResolvers();
+      chrome.runtime.sendMessage({ type: RUNTIME_MESSAGE_TYPES.EXPORT_CSV_REQUEST }, (resp) => {
+        resolve(resp || { success: false, error: "No response from service worker" });
       });
+      const response = await promise;
       if (response.success) {
         showToast(`Exported successfully: ${response.filename || "ShotData.csv"}`, "success");
       } else {
@@ -2552,6 +2549,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
       console.error("Error during export:", error);
       showToast("Export failed", "error");
     } finally {
+      clearStatusMessage();
       exportBtn.disabled = false;
     }
   }
@@ -2583,30 +2581,37 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     statusElement.classList.remove("status-error", "status-success");
     statusElement.classList.add(isError ? "status-error" : "status-success");
   }
+  function clearStatusMessage() {
+    const statusElement = document.getElementById("status-message");
+    if (!statusElement) return;
+    statusElement.textContent = "";
+    statusElement.classList.remove("status-error", "status-success");
+  }
   async function handleClearClick() {
     const clearBtn = document.getElementById("clear-btn");
     if (!clearBtn) return;
-    showStatusMessage("Clearing session data...", false);
+    showStatusMessage("Clearing current session...", false);
     clearBtn.disabled = true;
     try {
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.remove(STORAGE_KEYS.TRACKMAN_DATA, () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve();
-          }
-        });
+      const { promise, resolve, reject } = Promise.withResolvers();
+      chrome.storage.local.remove(STORAGE_KEYS.TRACKMAN_DATA, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve();
+        }
       });
+      await promise;
       cachedData = null;
       updateShotCount(null);
       updateExportButtonVisibility(null);
       renderStatCard();
-      showToast("Session data cleared", "success");
+      showToast("Current session cleared", "success");
     } catch (error) {
       console.error("Error clearing session data:", error);
-      showToast("Failed to clear data", "error");
+      showToast("Failed to clear current session", "error");
     } finally {
+      clearStatusMessage();
       clearBtn.disabled = false;
     }
   }

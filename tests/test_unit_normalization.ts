@@ -316,36 +316,36 @@ describe("Speed Conversion", () => {
 
 describe("Metric Category Classification", () => {
   it("correctly classifies distance metrics", () => {
-    expect(DISTANCE_METRICS.has("Carry")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("Total")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("Side")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("Height")).toBeTruthy();
-    expect(SMALL_DISTANCE_METRICS.has("LowPointDistance")).toBeTruthy();
-    expect(MILLIMETER_METRICS.has("ImpactHeight")).toBeTruthy();
-    expect(MILLIMETER_METRICS.has("ImpactOffset")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("CarrySide")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("TotalSide")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("MaxHeight")).toBeTruthy();
-    expect(DISTANCE_METRICS.has("Curve")).toBeTruthy();
+    expect("Carry" in DISTANCE_METRICS).toBeTruthy();
+    expect("Total" in DISTANCE_METRICS).toBeTruthy();
+    expect("Side" in DISTANCE_METRICS).toBeTruthy();
+    expect("Height" in DISTANCE_METRICS).toBeTruthy();
+    expect("LowPointDistance" in SMALL_DISTANCE_METRICS).toBeTruthy();
+    expect("ImpactHeight" in MILLIMETER_METRICS).toBeTruthy();
+    expect("ImpactOffset" in MILLIMETER_METRICS).toBeTruthy();
+    expect("CarrySide" in DISTANCE_METRICS).toBeTruthy();
+    expect("TotalSide" in DISTANCE_METRICS).toBeTruthy();
+    expect("MaxHeight" in DISTANCE_METRICS).toBeTruthy();
+    expect("Curve" in DISTANCE_METRICS).toBeTruthy();
   });
 
   it("correctly classifies angle metrics", () => {
-    expect(ANGLE_METRICS.has("AttackAngle")).toBeTruthy();
-    expect(ANGLE_METRICS.has("ClubPath")).toBeTruthy();
-    expect(ANGLE_METRICS.has("FaceAngle")).toBeTruthy();
-    expect(ANGLE_METRICS.has("DynamicLoft")).toBeTruthy();
+    expect("AttackAngle" in ANGLE_METRICS).toBeTruthy();
+    expect("ClubPath" in ANGLE_METRICS).toBeTruthy();
+    expect("FaceAngle" in ANGLE_METRICS).toBeTruthy();
+    expect("DynamicLoft" in ANGLE_METRICS).toBeTruthy();
   });
 
   it("correctly classifies speed metrics", () => {
-    expect(SPEED_METRICS.has("ClubSpeed")).toBeTruthy();
-    expect(SPEED_METRICS.has("BallSpeed")).toBeTruthy();
-    expect(SPEED_METRICS.has("Tempo")).toBeFalsy();
+    expect("ClubSpeed" in SPEED_METRICS).toBeTruthy();
+    expect("BallSpeed" in SPEED_METRICS).toBeTruthy();
+    expect("Tempo" in SPEED_METRICS).toBeFalsy();
   });
 
   it("excludes non-metric keys from categories", () => {
-    expect(DISTANCE_METRICS.has("SpinRate")).toBeFalsy();
-    expect(ANGLE_METRICS.has("SmashFactor")).toBeFalsy();
-    expect(SPEED_METRICS.has("FaceToPath")).toBeFalsy();
+    expect("SpinRate" in DISTANCE_METRICS).toBeFalsy();
+    expect("SmashFactor" in ANGLE_METRICS).toBeFalsy();
+    expect("FaceToPath" in SPEED_METRICS).toBeFalsy();
   });
 });
 

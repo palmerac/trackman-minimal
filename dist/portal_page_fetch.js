@@ -1,3 +1,4 @@
+"use strict";
 (() => {
   // src/content/portal_auth.ts
   function looksLikeJwt(value) {
@@ -77,6 +78,434 @@
   var PORTAL_GRAPHQL_RESPONSE_SOURCE = "trackpull-portal-main";
   var PORTAL_GRAPHQL_REQUEST_TYPE = "TRACKPULL_PORTAL_GRAPHQL_REQUEST";
   var PORTAL_GRAPHQL_RESPONSE_TYPE = "TRACKPULL_PORTAL_GRAPHQL_RESPONSE";
+
+  // src/shared/import_types.ts
+  var FETCH_ACTIVITIES_PAGE_SIZE = 100;
+  var ACTIVITY_SUMMARY_FIELDS = `
+  id
+  time
+  kind
+  __typename
+  ... on CoursePlayActivity {
+    course {
+      displayName
+    }
+  }
+  ... on MapMyBagSessionActivity {
+    strokeCount
+  }
+`;
+  var ACTIVITY_COURSE_SUMMARY_FIELDS = `
+  id
+  time
+  __typename
+  ... on CoursePlayActivity {
+    course {
+      displayName
+    }
+  }
+`;
+  var ACTIVITY_MINIMAL_TIME_FIELDS = `
+  id
+  time
+  __typename
+`;
+  var ACTIVITY_MINIMAL_DATE_FIELDS = `
+  id
+  date
+  __typename
+`;
+  var FETCH_ACTIVITIES_QUERY = `
+  query GetPlayerActivities($skip: Int!, $take: Int!) {
+    me {
+      activities(kinds: [COURSE_PLAY, MAP_MY_BAG], skip: $skip, take: $take) {
+        totalCount
+        pageInfo {
+          hasNextPage
+        }
+        items {
+          ${ACTIVITY_SUMMARY_FIELDS}
+        }
+      }
+    }
+  }
+`;
+  var FETCH_ACTIVITIES_QUERY_CANDIDATES = [
+    { label: "me.activities.items:kinds-page", query: FETCH_ACTIVITIES_QUERY, paginated: true },
+    {
+      label: "me.activities.items:all-page",
+      paginated: true,
+      query: `
+      query GetPlayerActivities($skip: Int!, $take: Int!) {
+        me {
+          activities(skip: $skip, take: $take) {
+            totalCount
+            pageInfo {
+              hasNextPage
+            }
+            items {
+              ${ACTIVITY_SUMMARY_FIELDS}
+            }
+          }
+        }
+      }
+    `
+    },
+    {
+      label: "me.activities.items:course-time",
+      query: `
+      query GetPlayerActivities {
+        me {
+          activities {
+            items {
+              ${ACTIVITY_COURSE_SUMMARY_FIELDS}
+            }
+          }
+        }
+      }
+    `
+    },
+    {
+      label: "me.activities.items:date",
+      query: `
+      query GetPlayerActivities {
+        me {
+          activities {
+            items {
+              ${ACTIVITY_MINIMAL_DATE_FIELDS}
+            }
+          }
+        }
+      }
+    `
+    },
+    {
+      label: "me.activities.nodes:time",
+      query: `
+      query GetPlayerActivities {
+        me {
+          activities {
+            nodes {
+              ${ACTIVITY_MINIMAL_TIME_FIELDS}
+            }
+          }
+        }
+      }
+    `
+    },
+    {
+      label: "me.activities.nodes:date",
+      query: `
+      query GetPlayerActivities {
+        me {
+          activities {
+            nodes {
+              ${ACTIVITY_MINIMAL_DATE_FIELDS}
+            }
+          }
+        }
+      }
+    `
+    },
+    {
+      label: "me.activities.connection:time",
+      query: `
+      query GetPlayerActivities {
+        me {
+          activities(first: 20) {
+            edges {
+              node {
+                id
+                time
+                __typename
+              }
+            }
+          }
+        }
+      }
+    `
+    },
+    {
+      label: "me.activities.connection:date",
+      query: `
+      query GetPlayerActivities {
+        me {
+          activities(first: 20) {
+            edges {
+              node {
+                id
+                date
+                __typename
+              }
+            }
+          }
+        }
+      }
+    `
+    }
+  ];
+  var STROKE_MEASUREMENT_FIELDS = `
+  clubSpeed ballSpeed smashFactor attackAngle clubPath faceAngle
+  faceToPath swingDirection swingPlane dynamicLoft spinRate spinAxis spinLoft
+  launchAngle launchDirection carry total carrySide totalSide
+  maxHeight landingAngle hangTime
+`;
+  var SCORECARD_SHOT_MEASUREMENT_FIELDS = `
+  ballSpeed carrySideActual carryActual launchDirection maxHeight carry total
+  carrySide launchAngle spinRate spinAxis backswingTime forwardswingTime tempo
+  strokeLength dynamicLie impactOffset impactHeight skidDistance rollPercentage
+  rollSpeed speedDrop rollDeceleration effectiveStimp flatStimp break bounces
+  entrySpeedDistance elevation slopePercentageSide slopePercentageRise
+  totalBreak attackAngle clubPath clubSpeed dynamicLoft faceAngle faceToPath
+  smashFactor gyroSpinAngle spinLoft swingDirection swingPlane swingRadius
+`;
+  var STROKE_FIELDS = `
+  club
+  time
+  targetDistance
+  measurement {
+    ${STROKE_MEASUREMENT_FIELDS}
+  }
+`;
+  var IMPORT_SESSION_QUERY = `
+  query FetchActivityById($id: ID!) {
+    node(id: $id) {
+      ... on SessionActivity {
+        id time strokeCount strokes { ${STROKE_FIELDS} }
+      }
+      ... on VirtualRangeSessionActivity {
+        id time strokeCount strokes { ${STROKE_FIELDS} }
+      }
+      ... on ShotAnalysisSessionActivity {
+        id time strokeCount strokes { ${STROKE_FIELDS} }
+      }
+      ... on CombineTestActivity {
+        id time strokes { ${STROKE_FIELDS} }
+      }
+      ... on RangeFindMyDistanceActivity {
+        id time strokes {
+          club
+          isDeleted
+          isSimulated
+          measurement(measurementType: PRO_BALL_MEASUREMENT) {
+            ballSpeed ballSpin spinAxis
+            carry carrySide total totalSide
+            landingAngle launchAngle launchDirection maxHeight
+          }
+        }
+      }
+    }
+  }
+`;
+  function flatStrokeActivityQuery(typeName) {
+    return {
+      label: `${typeName}:strokes`,
+      query: `
+      query FetchActivityById($id: ID!) {
+        node(id: $id) {
+          __typename
+          ... on ${typeName} {
+            id time
+            strokes { ${STROKE_FIELDS} }
+          }
+        }
+      }
+    `
+    };
+  }
+  function groupedStrokeActivityQuery(typeName) {
+    return {
+      label: `${typeName}:strokeGroups`,
+      query: `
+      query FetchActivityById($id: ID!) {
+        node(id: $id) {
+          __typename
+          ... on ${typeName} {
+            id time
+            strokeGroups {
+              club
+              name
+              strokes { ${STROKE_FIELDS} }
+            }
+          }
+        }
+      }
+    `
+    };
+  }
+  function proBallActivityQuery(typeName) {
+    return {
+      label: `${typeName}:PRO_BALL_MEASUREMENT`,
+      query: `
+      query FetchActivityById($id: ID!) {
+        node(id: $id) {
+          __typename
+          ... on ${typeName} {
+            id time
+            strokes {
+              club
+              time
+              targetDistance
+              measurement(measurementType: PRO_BALL_MEASUREMENT) {
+                ballSpeed ballSpin spinAxis
+                carry carrySide total totalSide
+                landingAngle launchAngle launchDirection maxHeight
+              }
+            }
+          }
+        }
+      }
+    `
+    };
+  }
+  function groupedProBallActivityQuery(typeName) {
+    return {
+      label: `${typeName}:strokeGroups:PRO_BALL_MEASUREMENT`,
+      query: `
+      query FetchActivityById($id: ID!) {
+        node(id: $id) {
+          __typename
+          ... on ${typeName} {
+            id time
+            strokeGroups {
+              club
+              name
+              strokes {
+                club
+                time
+                targetDistance
+                measurement(measurementType: PRO_BALL_MEASUREMENT) {
+                  ballSpeed ballSpin spinAxis
+                  carry carrySide total totalSide
+                  landingAngle launchAngle launchDirection maxHeight
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+    };
+  }
+  function scorecardShotActivityQuery(typeName, measurementKind) {
+    return {
+      label: `${typeName}:scorecard.shots:${measurementKind}`,
+      query: `
+      query FetchActivityById($id: ID!) {
+        node(id: $id) {
+          __typename
+          ... on ${typeName} {
+            id time kind
+            scorecard {
+              holes {
+                holeNumber
+                shots {
+                  id
+                  shotNumber
+                  club
+                  launchTime
+                  total
+                  measurement(shotMeasurementKind: ${measurementKind}) {
+                    ${SCORECARD_SHOT_MEASUREMENT_FIELDS}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+    };
+  }
+  var IMPORT_SESSION_FALLBACK_QUERIES = [
+    scorecardShotActivityQuery("CoursePlayActivity", "NORMALIZED_MEASUREMENT"),
+    scorecardShotActivityQuery("CoursePlayActivity", "MEASUREMENT"),
+    scorecardShotActivityQuery("CoursePlayActivity", "PRO_BALL_MEASUREMENT"),
+    flatStrokeActivityQuery("CoursePlayActivity"),
+    groupedStrokeActivityQuery("CoursePlayActivity"),
+    scorecardShotActivityQuery("CourseSessionActivity", "NORMALIZED_MEASUREMENT"),
+    scorecardShotActivityQuery("CourseSessionActivity", "MEASUREMENT"),
+    scorecardShotActivityQuery("CourseSessionActivity", "PRO_BALL_MEASUREMENT"),
+    flatStrokeActivityQuery("CourseSessionActivity"),
+    groupedStrokeActivityQuery("CourseSessionActivity"),
+    flatStrokeActivityQuery("VirtualGolfActivity"),
+    groupedStrokeActivityQuery("VirtualGolfActivity"),
+    flatStrokeActivityQuery("VirtualGolfSessionActivity"),
+    groupedStrokeActivityQuery("VirtualGolfSessionActivity"),
+    flatStrokeActivityQuery("MapMyBagActivity"),
+    groupedStrokeActivityQuery("MapMyBagActivity"),
+    flatStrokeActivityQuery("MapMyBagSessionActivity"),
+    groupedStrokeActivityQuery("MapMyBagSessionActivity"),
+    flatStrokeActivityQuery("BagMappingActivity"),
+    groupedStrokeActivityQuery("BagMappingActivity"),
+    proBallActivityQuery("MapMyBagActivity"),
+    groupedProBallActivityQuery("MapMyBagActivity"),
+    proBallActivityQuery("MapMyBagSessionActivity"),
+    groupedProBallActivityQuery("MapMyBagSessionActivity")
+  ];
+  var IMPORT_SESSION_QUERY_CANDIDATES = [
+    { label: "default", query: IMPORT_SESSION_QUERY },
+    ...IMPORT_SESSION_FALLBACK_QUERIES
+  ];
+
+  // src/shared/portal_graphql_allowlist.ts
+  function normalizeGraphQLQuery(query) {
+    return query.replace(/\s+/g, " ").trim();
+  }
+  var ALLOWED_PORTAL_QUERIES = {};
+  for (const candidate of FETCH_ACTIVITIES_QUERY_CANDIDATES) {
+    ALLOWED_PORTAL_QUERIES[normalizeGraphQLQuery(candidate.query)] = {
+      kind: "activity-list",
+      label: candidate.label,
+      paginated: Boolean(candidate.paginated)
+    };
+  }
+  for (const candidate of IMPORT_SESSION_QUERY_CANDIDATES) {
+    ALLOWED_PORTAL_QUERIES[normalizeGraphQLQuery(candidate.query)] = {
+      kind: "session-import",
+      label: candidate.label
+    };
+  }
+  function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  function hasOnlyKeys(value, keys) {
+    return Object.keys(value).every((key) => keys.includes(key));
+  }
+  function validateActivityId(value) {
+    return typeof value === "string" && value.length > 0 && value.length <= 1024 && !/[\u0000-\u001f\u007f]/.test(value);
+  }
+  function validateVariablesForQuery(query, variables) {
+    if (query.kind === "session-import") {
+      if (!isRecord(variables) || !hasOnlyKeys(variables, ["id"])) {
+        return { ok: false, error: "Invalid GraphQL variables" };
+      }
+      return validateActivityId(variables.id) ? { ok: true } : { ok: false, error: "Invalid GraphQL variables" };
+    }
+    if (!query.paginated) {
+      if (variables === void 0 || isRecord(variables) && Object.keys(variables).length === 0) {
+        return { ok: true };
+      }
+      return { ok: false, error: "Invalid GraphQL variables" };
+    }
+    if (!isRecord(variables) || !hasOnlyKeys(variables, ["skip", "take"])) {
+      return { ok: false, error: "Invalid GraphQL variables" };
+    }
+    const { skip, take } = variables;
+    const validSkip = Number.isInteger(skip) && skip >= 0;
+    const validTake = Number.isInteger(take) && take >= 1 && take <= FETCH_ACTIVITIES_PAGE_SIZE;
+    return validSkip && validTake ? { ok: true } : { ok: false, error: "Invalid GraphQL variables" };
+  }
+  function validatePortalGraphQLRequest(query, variables) {
+    if (typeof query !== "string") {
+      return { ok: false, error: "Invalid GraphQL query" };
+    }
+    const allowedQuery = ALLOWED_PORTAL_QUERIES[normalizeGraphQLQuery(query)];
+    if (!allowedQuery) {
+      return { ok: false, error: "GraphQL query is not allowed" };
+    }
+    return validateVariablesForQuery(allowedQuery, variables);
+  }
 
   // src/content/portal_page_fetch.ts
   var WRAPPED_FETCH_MARKER = "__trackpullPortalFetchWrapped";
@@ -263,6 +692,16 @@
     proto.__trackpullPortalXhrWrapped = true;
   }
   async function fetchGraphQLInPageContext(query, variables) {
+    const validation = validatePortalGraphQLRequest(query, variables);
+    if (!validation.ok) {
+      return {
+        source: PORTAL_GRAPHQL_RESPONSE_SOURCE,
+        type: PORTAL_GRAPHQL_RESPONSE_TYPE,
+        requestId: "",
+        success: false,
+        error: validation.error
+      };
+    }
     try {
       installFetchCapture();
       const response = await getPageFetch()(PORTAL_GRAPHQL_ENDPOINT, {
@@ -306,9 +745,20 @@
   }
   function registerPageBridge() {
     window.addEventListener("message", (event) => {
-      if (event.source !== window) return;
+      if (event.source !== window || event.origin !== window.location.origin) return;
       if (!isPortalGraphQLRequestMessage(event.data)) return;
       const request = event.data;
+      const validation = validatePortalGraphQLRequest(request.query, request.variables);
+      if (!validation.ok) {
+        window.postMessage({
+          source: PORTAL_GRAPHQL_RESPONSE_SOURCE,
+          type: PORTAL_GRAPHQL_RESPONSE_TYPE,
+          requestId: request.requestId,
+          success: false,
+          error: validation.error
+        }, window.location.origin);
+        return;
+      }
       fetchGraphQLInPageContext(request.query, request.variables).then((response) => {
         window.postMessage({ ...response, requestId: request.requestId }, window.location.origin);
       });

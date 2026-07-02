@@ -11,6 +11,16 @@
 import { CUSTOM_PROMPT_KEY_PREFIX, CUSTOM_PROMPT_IDS_KEY } from "./constants";
 import type { CustomPrompt } from "./prompt_types";
 
+export const CUSTOM_PROMPT_DATA_PLACEHOLDER = "{{DATA}}" as const;
+export const CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR = "Custom prompt templates must include {{DATA}}.";
+
+export function validateCustomPromptTemplate(template: string): string | null {
+  return template.includes(CUSTOM_PROMPT_DATA_PLACEHOLDER)
+    ? null
+    : CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR;
+}
+
+
 /**
  * Loads all custom prompts from chrome.storage.sync.
  * Returns an empty array if no custom prompts have been saved.
@@ -30,8 +40,13 @@ export async function loadCustomPrompts(): Promise<CustomPrompt[]> {
  * Saves a custom prompt to chrome.storage.sync.
  * If a prompt with the same id already exists, it is overwritten.
  * Updates the ID index to include this prompt's id.
+ * Requires {{DATA}} so saved prompts can include the exported shot data.
  */
 export async function saveCustomPrompt(prompt: CustomPrompt): Promise<void> {
+  const validationError = validateCustomPromptTemplate(prompt.template);
+  if (validationError) {
+    throw new Error(validationError);
+  }
   const key = CUSTOM_PROMPT_KEY_PREFIX + prompt.id;
   const result = await chrome.storage.sync.get([CUSTOM_PROMPT_IDS_KEY]);
   const ids: string[] = (result[CUSTOM_PROMPT_IDS_KEY] as string[]) ?? [];

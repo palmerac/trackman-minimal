@@ -4,15 +4,21 @@
  * session data to the service worker via chrome.runtime.sendMessage.
  */
 
+import {
+  RUNTIME_MESSAGE_TYPES,
+  isAllowedReportOrigin,
+  isTrackmanShotDataWindowMessage,
+} from "../shared/runtime_messages";
+
 window.addEventListener("message", (event: MessageEvent) => {
   if (event.source !== window) return;
-  if (!event.data || event.data.source !== "trackpull-interceptor") return;
-  if (event.data.type !== "TRACKMAN_SHOT_DATA") return;
+  if (!isAllowedReportOrigin(event.origin)) return;
+  if (!isTrackmanShotDataWindowMessage(event.data)) return;
 
   console.log("TrackPull bridge: forwarding shot data to service worker");
 
   chrome.runtime.sendMessage(
-    { type: "SAVE_DATA", data: event.data.data },
+    { type: RUNTIME_MESSAGE_TYPES.SAVE_DATA, data: event.data.data },
     (response) => {
       if (chrome.runtime.lastError) {
         console.error("TrackPull bridge: sendMessage failed:", chrome.runtime.lastError.message);

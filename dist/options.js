@@ -1,16 +1,27 @@
+"use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __esm = (fn, res) => function __init() {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
+    }
   };
   var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
   };
 
   // src/shared/prompt_types.ts
   var BUILTIN_PROMPTS;
   var init_prompt_types = __esm({
     "src/shared/prompt_types.ts"() {
+      "use strict";
       BUILTIN_PROMPTS = [
         {
           id: "session-overview-beginner",
@@ -214,10 +225,19 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     }
   });
 
+  // src/shared/metric_catalog.ts
+  var init_metric_catalog = __esm({
+    "src/shared/metric_catalog.ts"() {
+      "use strict";
+    }
+  });
+
   // src/shared/constants.ts
   var CUSTOM_PROMPT_KEY_PREFIX, CUSTOM_PROMPT_IDS_KEY, STORAGE_KEYS;
   var init_constants = __esm({
     "src/shared/constants.ts"() {
+      "use strict";
+      init_metric_catalog();
       CUSTOM_PROMPT_KEY_PREFIX = "customPrompt_";
       CUSTOM_PROMPT_IDS_KEY = "customPromptIds";
       STORAGE_KEYS = {
@@ -236,6 +256,9 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   });
 
   // src/shared/custom_prompts.ts
+  function validateCustomPromptTemplate(template) {
+    return template.includes(CUSTOM_PROMPT_DATA_PLACEHOLDER) ? null : CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR;
+  }
   async function loadCustomPrompts() {
     const idsResult = await chrome.storage.sync.get([CUSTOM_PROMPT_IDS_KEY]);
     const ids = idsResult[CUSTOM_PROMPT_IDS_KEY] ?? [];
@@ -245,6 +268,10 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     return ids.map((id) => promptsResult[CUSTOM_PROMPT_KEY_PREFIX + id]).filter((p) => p !== void 0);
   }
   async function saveCustomPrompt(prompt) {
+    const validationError = validateCustomPromptTemplate(prompt.template);
+    if (validationError) {
+      throw new Error(validationError);
+    }
     const key = CUSTOM_PROMPT_KEY_PREFIX + prompt.id;
     const result = await chrome.storage.sync.get([CUSTOM_PROMPT_IDS_KEY]);
     const ids = result[CUSTOM_PROMPT_IDS_KEY] ?? [];
@@ -264,9 +291,30 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     await chrome.storage.sync.remove(key);
     await chrome.storage.sync.set({ [CUSTOM_PROMPT_IDS_KEY]: newIds });
   }
+  var CUSTOM_PROMPT_DATA_PLACEHOLDER, CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR;
   var init_custom_prompts = __esm({
     "src/shared/custom_prompts.ts"() {
+      "use strict";
       init_constants();
+      CUSTOM_PROMPT_DATA_PLACEHOLDER = "{{DATA}}";
+      CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR = "Custom prompt templates must include {{DATA}}.";
+    }
+  });
+
+  // src/shared/bulk_import_store.ts
+  function clearAllBulkImportedSessions() {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Could not clear bulk import store"));
+    request.onblocked = () => reject(new Error("Could not clear bulk import store while it is in use"));
+    return promise;
+  }
+  var DB_NAME;
+  var init_bulk_import_store = __esm({
+    "src/shared/bulk_import_store.ts"() {
+      "use strict";
+      DB_NAME = "trackpull-bulk-import";
     }
   });
 
@@ -275,12 +323,14 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     "src/options/options.ts"() {
       init_prompt_types();
       init_custom_prompts();
+      init_bulk_import_store();
       init_constants();
       var editingPromptId = null;
       document.addEventListener("DOMContentLoaded", async () => {
         renderBuiltInPrompts();
         await renderCustomPrompts();
         setupNewPromptForm();
+        setupPrivacyActions();
         await restoreAiPreference();
       });
       function renderBuiltInPrompts() {
@@ -353,8 +403,21 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
         const newPromptBtn = document.getElementById("new-prompt-btn");
         if (nameInput) nameInput.value = prompt.name;
         if (templateInput) templateInput.value = prompt.template;
+        setTemplateError(null);
         if (form) form.style.display = "block";
         if (newPromptBtn) newPromptBtn.style.display = "none";
+      }
+      function setTemplateError(message) {
+        const templateInput = document.getElementById("prompt-template-input");
+        const errorElement = document.getElementById("prompt-template-error");
+        if (!templateInput || !errorElement) return;
+        templateInput.setCustomValidity(message ?? "");
+        if (message === null) {
+          templateInput.removeAttribute("aria-invalid");
+        } else {
+          templateInput.setAttribute("aria-invalid", "true");
+        }
+        errorElement.textContent = message ?? "";
       }
       function setupNewPromptForm() {
         const newPromptBtn = document.getElementById("new-prompt-btn");
@@ -368,6 +431,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           editingPromptId = null;
           nameInput.value = "";
           templateInput.value = "";
+          setTemplateError(null);
           form.style.display = "block";
           newPromptBtn.style.display = "none";
           nameInput.focus();
@@ -376,8 +440,14 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           editingPromptId = null;
           nameInput.value = "";
           templateInput.value = "";
+          setTemplateError(null);
           form.style.display = "none";
           newPromptBtn.style.display = "inline-flex";
+        });
+        templateInput.addEventListener("input", () => {
+          if (templateInput.validationMessage === CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR) {
+            setTemplateError(validateCustomPromptTemplate(templateInput.value.trim()));
+          }
         });
         saveBtn.addEventListener("click", async () => {
           const nameValue = nameInput.value.trim();
@@ -392,6 +462,14 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
             templateInput.focus();
             return;
           }
+          const templateError = validateCustomPromptTemplate(templateValue);
+          if (templateError) {
+            setTemplateError(templateError);
+            showToast(templateError, "error");
+            templateInput.focus();
+            return;
+          }
+          setTemplateError(null);
           const id = editingPromptId ?? crypto.randomUUID();
           const prompt = { id, name: nameValue, template: templateValue };
           try {
@@ -400,6 +478,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
             editingPromptId = null;
             nameInput.value = "";
             templateInput.value = "";
+            setTemplateError(null);
             form.style.display = "none";
             newPromptBtn.style.display = "inline-flex";
             await renderCustomPrompts();
@@ -407,9 +486,70 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes("QUOTA_BYTES")) {
               showToast("Storage full. Delete prompts to save new ones.", "error");
+            } else if (message === CUSTOM_PROMPT_DATA_PLACEHOLDER_ERROR) {
+              setTemplateError(message);
+              showToast(message, "error");
+              templateInput.focus();
             } else {
               showToast("Failed to save prompt. Please try again.", "error");
             }
+          }
+        });
+      }
+      function removeFromStorage(area, keys) {
+        const { promise, resolve, reject } = Promise.withResolvers();
+        area.remove(keys, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+        return promise;
+      }
+      async function clearAllTrackPullData() {
+        const customPrompts = await loadCustomPrompts();
+        const customPromptKeys = customPrompts.map((prompt) => CUSTOM_PROMPT_KEY_PREFIX + prompt.id);
+        const localKeys = Object.values(STORAGE_KEYS);
+        const syncKeys = [STORAGE_KEYS.AI_SERVICE, CUSTOM_PROMPT_IDS_KEY, ...customPromptKeys];
+        await Promise.all([
+          removeFromStorage(chrome.storage.local, localKeys),
+          removeFromStorage(chrome.storage.sync, syncKeys),
+          clearAllBulkImportedSessions()
+        ]);
+      }
+      function resetPromptForm() {
+        const form = document.getElementById("prompt-form");
+        const newPromptBtn = document.getElementById("new-prompt-btn");
+        const nameInput = document.getElementById("prompt-name-input");
+        const templateInput = document.getElementById("prompt-template-input");
+        editingPromptId = null;
+        if (nameInput) nameInput.value = "";
+        if (templateInput) templateInput.value = "";
+        setTemplateError(null);
+        if (form) form.style.display = "none";
+        if (newPromptBtn) newPromptBtn.style.display = "inline-flex";
+      }
+      function setupPrivacyActions() {
+        const clearAllBtn = document.getElementById("clear-all-data-btn");
+        if (!clearAllBtn) return;
+        clearAllBtn.addEventListener("click", async () => {
+          const confirmed = window.confirm(
+            "Clear all TrackPull data from this browser, including current session, history, bulk imports, preferences, and custom prompts?"
+          );
+          if (!confirmed) return;
+          clearAllBtn.disabled = true;
+          try {
+            await clearAllTrackPullData();
+            resetPromptForm();
+            await renderCustomPrompts();
+            await restoreAiPreference();
+            showToast("All TrackPull data cleared.", "success");
+          } catch (err) {
+            console.error("Failed to clear TrackPull data:", err);
+            showToast("Failed to clear all TrackPull data.", "error");
+          } finally {
+            clearAllBtn.disabled = false;
           }
         });
       }
@@ -418,12 +558,10 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
         if (!select) return;
         const result = await chrome.storage.sync.get([STORAGE_KEYS.AI_SERVICE]);
         const savedService = result[STORAGE_KEYS.AI_SERVICE];
-        if (savedService) {
-          select.value = savedService;
-        }
-        select.addEventListener("change", () => {
+        select.value = savedService ?? "ChatGPT";
+        select.onchange = () => {
           chrome.storage.sync.set({ [STORAGE_KEYS.AI_SERVICE]: select.value });
-        });
+        };
       }
       function showToast(message, type) {
         const container = document.getElementById("toast-container");

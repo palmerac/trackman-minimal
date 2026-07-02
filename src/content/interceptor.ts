@@ -7,38 +7,13 @@
  */
 
 import type { Shot, ClubGroup, SessionData, CaptureInfo } from "../models/types";
+import {
+  WINDOW_MESSAGE_SOURCES,
+  WINDOW_MESSAGE_TYPES,
+} from "../shared/runtime_messages";
+import { classifyReportUrlType } from "../shared/report_url";
+import { isKnownReportMetric } from "../shared/metric_catalog";
 
-const METRIC_KEYS = new Set([
-  "ClubSpeed",
-  "BallSpeed",
-  "SmashFactor",
-  "AttackAngle",
-  "ClubPath",
-  "FaceAngle",
-  "FaceToPath",
-  "SwingDirection",
-  "DynamicLoft",
-  "SpinRate",
-  "SpinAxis",
-  "SpinLoft",
-  "LaunchAngle",
-  "LaunchDirection",
-  "Carry",
-  "Total",
-  "Side",
-  "SideTotal",
-  "CarrySide",
-  "TotalSide",
-  "Height",
-  "MaxHeight",
-  "Curve",
-  "LandingAngle",
-  "HangTime",
-  "LowPointDistance",
-  "ImpactHeight",
-  "ImpactOffset",
-  "Tempo",
-]);
 
 function containsStrokegroups(data: unknown): boolean {
   if (!data || typeof data !== "object") return false;
@@ -67,6 +42,7 @@ function tryParseJson(text: string): unknown | null {
     return null;
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // Parse API JSON → SessionData (no tags yet — those come from the DOM)
@@ -105,7 +81,7 @@ function parseSessionData(data: Record<string, unknown>, sourceUrl: string): Ses
     const session: SessionData = {
       date: dateStr,
       report_id: reportId,
-      url_type: "StrokeGroups" in data ? "activity" : "report",
+      url_type: classifyReportUrlType(parsedUrl),
       club_groups: [],
       metric_names: [],
       metadata_params: {},
@@ -135,7 +111,7 @@ function parseSessionData(data: Record<string, unknown>, sourceUrl: string): Ses
 
           const shotMetrics: Record<string, string> = {};
           for (const [key, value] of Object.entries(merged)) {
-            if (!METRIC_KEYS.has(key)) continue;
+            if (!isKnownReportMetric(key)) continue;
             let numValue: number | null = null;
             if (typeof value === "number") {
               numValue = value;
@@ -205,11 +181,11 @@ function applyGroupTags(session: SessionData, tags: string[]): void {
 function postSession(session: SessionData): void {
   window.postMessage(
     {
-      type: "TRACKMAN_SHOT_DATA",
-      source: "trackpull-interceptor",
+      type: WINDOW_MESSAGE_TYPES.TRACKMAN_SHOT_DATA,
+      source: WINDOW_MESSAGE_SOURCES.REPORT_INTERCEPTOR,
       data: session,
     },
-    "*"
+    window.location.origin
   );
   const totalShots = session.club_groups.reduce((n, g) => n + g.shots.length, 0);
   const taggedShots = session.club_groups.reduce(

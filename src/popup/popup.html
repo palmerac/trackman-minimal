@@ -20,6 +20,8 @@
       --color-accent:             #1976d2;
       --color-accent-hover:       #1565c0;
       --color-accent-light:       rgba(25, 118, 210, 0.08);
+      --color-focus-ring:          rgba(25, 118, 210, 0.35);
+      --color-link:                #0d47a1;
       --color-border:             #e0e0e0;
       --color-disabled:           #bdbdbd;
       --color-danger:             #f44336;
@@ -45,6 +47,8 @@
         --color-accent:             #64b5f6;
         --color-accent-hover:       #90caf9;
         --color-accent-light:       rgba(100, 181, 246, 0.12);
+        --color-focus-ring:          rgba(100, 181, 246, 0.45);
+        --color-link:                #90caf9;
         --color-border:             #404040;
         --color-disabled:           #666666;
         --color-danger:             #ef5350;
@@ -77,6 +81,19 @@
       font-size: 14px;
       line-height: 1.5;
       color: var(--color-text-muted);
+    }
+
+    a {
+      color: var(--color-link);
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    summary:focus-visible,
+    input[type="checkbox"]:focus-visible {
+      outline: 3px solid var(--color-focus-ring);
+      outline-offset: 3px;
+      border-radius: 4px;
     }
     .shot-count-container {
       margin: 20px 0;
@@ -264,6 +281,12 @@
       flex-shrink: 0;
     }
 
+    .toggle-row input[type="checkbox"]:focus-visible,
+    .activity-select:focus-visible,
+    .bulk-select-label input:focus-visible {
+      box-shadow: 0 0 0 3px var(--color-focus-ring);
+    }
+
     /* Section dividers */
     .ai-section {
       margin-top: 20px;
@@ -380,6 +403,13 @@
 
     .btn-outline:hover {
       background-color: var(--color-accent-light);
+    }
+
+    .ai-helper-text {
+      margin: 8px 0 0 0;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--color-text-muted);
     }
 
     /* Prompt preview disclosure widget */
@@ -745,9 +775,10 @@
       </div>
     </div>
     <div class="ai-actions">
-      <button id="open-ai-btn" class="btn-primary">Open in AI</button>
-      <button id="copy-prompt-btn" class="btn-outline">Copy Prompt + Data</button>
+      <button id="open-ai-btn" class="btn-primary">Copy data &amp; open AI</button>
+      <button id="copy-prompt-btn" class="btn-outline">Copy prompt + data</button>
     </div>
+    <p class="ai-helper-text">TrackPull copies the prompt and shot data to your clipboard, then opens the AI site. Paste it manually; nothing is sent automatically.</p>
     <details id="prompt-preview">
       <summary>Preview prompt</summary>
       <pre id="prompt-preview-content"></pre>
@@ -796,7 +827,7 @@
       </div>
     </div>
   </div>
-  <button id="clear-btn" style="display:none">Clear Session Data</button>
+  <button id="clear-btn" style="display:none">Clear current session</button>
   <div id="status-message"></div>
   <div id="toast-container" style="position: fixed; top: 0; left: 0; right: 0; z-index: 1000;"></div>
 </body>

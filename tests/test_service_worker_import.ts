@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // vi.hoisted runs BEFORE vi.mock and BEFORE static imports are evaluated.
 // This is the only place we can set globalThis.chrome before serviceWorker.ts loads.
-const { mockStorageSet, mockPutBulkImportedSession, getHandler } = vi.hoisted(() => {
+const { mockStorageSet, mockStorageGet, mockDownload, mockPutBulkImportedSession, getHandler } = vi.hoisted(() => {
   const mockStorageSet = vi.fn();
   const mockStorageGet = vi.fn();
   const mockStorageRemove = vi.fn();
@@ -48,6 +48,7 @@ const { mockStorageSet, mockPutBulkImportedSession, getHandler } = vi.hoisted(()
   return {
     mockStorageSet,
     mockStorageGet,
+    mockDownload,
     mockPutBulkImportedSession,
     getHandler: () => {
       if (!_handler) throw new Error("onMessage handler not registered");
@@ -77,11 +78,13 @@ import { saveSessionToHistory } from "../src/shared/history";
 import { putBulkImportedSession } from "../src/shared/bulk_import_store";
 import { STORAGE_KEYS } from "../src/shared/constants";
 import type { ImportStatus } from "../src/shared/import_types";
+import type { SessionData } from "../src/models/types";
 import {
   FETCH_ACTIVITIES_QUERY,
   IMPORT_SESSION_QUERY,
   IMPORT_SESSION_QUERY_CANDIDATES,
 } from "../src/shared/import_types";
+import { REPORT_PAGE_ORIGIN } from "../src/shared/runtime_messages";
 
 // This import triggers serviceWorker.ts evaluation — chrome must already exist (set in vi.hoisted above)
 import "../src/background/serviceWorker";
@@ -89,9 +92,10 @@ import "../src/background/serviceWorker";
 // Helper to invoke the captured message handler
 function callHandler(
   message: unknown,
-  sendResponse: (r: unknown) => void
+  sendResponse: (r: unknown) => void,
+  sender: unknown = {}
 ): boolean | undefined {
-  return getHandler()(message, {}, sendResponse);
+  return getHandler()(message, sender, sendResponse);
 }
 
 // ─── import_types module ─────────────────────────────────────────────────────
@@ -161,13 +165,111 @@ describe("STORAGE_KEYS.IMPORT_STATUS", () => {
   });
 });
 
+describe("runtime data message handlers", () => {
+  const session: SessionData = {
+    report_id: "report-save-1",
+    date: "2026/01/15:09.30",
+    url_type: "report",
+    club_groups: [
+      {
+        club_name: "Driver",
+        shots: [{ shot_number: 0, metrics: { ClubSpeed: "48" } }],
+        averages: { ClubSpeed: "48" },
+        consistency: {},
+      },
+    ],
+    metric_names: ["ClubSpeed"],
+    metadata_params: {},
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(saveSessionToHistory).mockResolvedValue(undefined);
+  });
+
+  it("SAVE_DATA persists the supplied session under the shared storage key and archives history", async () => {
+    mockStorageSet.mockImplementationOnce((
+      stored: Record<string, unknown>,
+      callback?: () => void
+    ) => {
+      callback?.();
+      return Promise.resolve();
+    });
+    const sendResponse = vi.fn();
+
+    const returnValue = callHandler({ type: "SAVE_DATA", data: session }, sendResponse, { origin: REPORT_PAGE_ORIGIN });
+
+    expect(returnValue).toBe(true);
+    expect(mockStorageSet).toHaveBeenCalledWith(
+      { [STORAGE_KEYS.TRACKMAN_DATA]: session },
+      expect.any(Function)
+    );
+    expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    await vi.waitUntil(() => vi.mocked(saveSessionToHistory).mock.calls.length > 0);
+    expect(saveSessionToHistory).toHaveBeenCalledWith(session);
+  });
+
+  it("EXPORT_CSV_REQUEST reads current preferences, downloads generated CSV, and returns file metadata", async () => {
+    mockStorageGet.mockImplementationOnce((
+      keys: string[],
+      callback: (result: Record<string, unknown>) => void
+    ) => {
+      expect(keys).toEqual(expect.arrayContaining([
+        STORAGE_KEYS.TRACKMAN_DATA,
+        STORAGE_KEYS.SPEED_UNIT,
+        STORAGE_KEYS.DISTANCE_UNIT,
+        STORAGE_KEYS.HITTING_SURFACE,
+        STORAGE_KEYS.INCLUDE_AVERAGES,
+      ]));
+      callback({
+        [STORAGE_KEYS.TRACKMAN_DATA]: session,
+        [STORAGE_KEYS.SPEED_UNIT]: "mph",
+        [STORAGE_KEYS.DISTANCE_UNIT]: "yds",
+        [STORAGE_KEYS.HITTING_SURFACE]: "Grass",
+        [STORAGE_KEYS.INCLUDE_AVERAGES]: false,
+      });
+    });
+    mockDownload.mockImplementationOnce((
+      options: { url: string; filename: string; saveAs: boolean },
+      callback: (downloadId?: number) => void
+    ) => {
+      callback(77);
+    });
+    const sendResponse = vi.fn();
+
+    const returnValue = callHandler({ type: "EXPORT_CSV_REQUEST" }, sendResponse);
+
+    expect(returnValue).toBe(true);
+    expect(mockDownload).toHaveBeenCalledTimes(1);
+    const downloadOptions = mockDownload.mock.calls[0][0] as {
+      url: string;
+      filename: string;
+      saveAs: boolean;
+    };
+    const csvPayload = decodeURIComponent(downloadOptions.url.replace(/^data:text\/csv;charset=utf-8,/, ""));
+    expect(csvPayload).toContain("Hitting Surface: Grass");
+    expect(csvPayload).toContain("Club Speed (mph)");
+    expect(csvPayload).not.toContain(",Average,");
+    expect(downloadOptions.filename).not.toMatch(/[:/\\?%*|"<>]/);
+    expect(downloadOptions.saveAs).toBe(false);
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: true,
+      downloadId: 77,
+      filename: downloadOptions.filename,
+    });
+  });
+});
+
 describe("SAVE_IMPORTED_SESSION handler", () => {
   let sendResponse: ReturnType<typeof vi.fn>;
 
-  const mockSession = {
+  const mockSession: SessionData = {
     report_id: "session-abc",
     date: "2026-01-15",
-    club_groups: [{ club: "Driver", shots: [{ ClubSpeed: "105" }] }],
+    url_type: "activity",
+    club_groups: [{ club_name: "Driver", shots: [{ shot_number: 0, metrics: { ClubSpeed: "105" } }], averages: {}, consistency: {} }],
+    metric_names: ["ClubSpeed"],
+    metadata_params: {},
   };
 
   beforeEach(() => {
@@ -179,7 +281,7 @@ describe("SAVE_IMPORTED_SESSION handler", () => {
   });
 
   it("acknowledges the popup message synchronously without holding the response channel open", async () => {
-    vi.mocked(parsePortalActivity).mockReturnValue(mockSession as any);
+    vi.mocked(parsePortalActivity).mockReturnValue(mockSession);
 
     const returnValue = callHandler({
       type: "SAVE_IMPORTED_SESSION",
@@ -214,7 +316,7 @@ describe("SAVE_IMPORTED_SESSION handler", () => {
         { club_name: "Driver", shots: [{ shot_number: 0, metrics: {} }, { shot_number: 1, metrics: {} }] },
       ],
     };
-    vi.mocked(parsePortalActivity).mockReturnValue(bulkSession as any);
+    vi.mocked(parsePortalActivity).mockReturnValue(bulkSession);
 
     const returnValue = callHandler({
       type: "SAVE_BULK_IMPORTED_SESSION",
@@ -229,7 +331,7 @@ describe("SAVE_IMPORTED_SESSION handler", () => {
 
     await vi.waitUntil(() => sendResponse.mock.calls.length > 0);
 
-    expect(mockStorageSet).toHaveBeenCalledWith(
+    expect(mockStorageSet).not.toHaveBeenCalledWith(
       expect.objectContaining({ [STORAGE_KEYS.TRACKMAN_DATA]: bulkSession })
     );
     expect(saveSessionToHistory).toHaveBeenCalledWith(bulkSession);
