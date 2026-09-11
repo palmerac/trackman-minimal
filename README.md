@@ -11,8 +11,8 @@ A streamlined, zero-bloat Chrome extension to capture and export Trackman golf s
 This fork is built for golfers and analysts who want clean, fast CSV exports of their simulator practice sessions without unnecessary UI clutter, background overhead, or AI prompt tooling:
 
 1. **Export Range & Shot Analysis from the Main Portal Page:**
-   - The original extension was restricted to Course Play and Map My Bag.
-   - **Trackman Minimal** adds full support for **Virtual Range**, **Shot Analysis**, and **Combine Tests** directly from the main activities page (`portal.trackmangolf.com/player/activities`), allowing you to export your standard range sessions with a single click.
+   - In the original extension, Range and Shot Analysis sessions required clicking into each individual session page one-by-one to export them.
+   - **Trackman Minimal** brings **Virtual Range**, **Shot Analysis**, and **Combine Tests** directly into the main activities list (`portal.trackmangolf.com/player/activities`), so you can browse, select, and bulk-export your practice sessions all at once without navigating into each session individually.
 2. **Club Face Impact Metrics (PR #12):**
    - Incorporates the GraphQL stroke measurement improvements from [`criticalberne/TrackPull#12`](https://github.com/criticalberne/TrackPull/pull/12).
    - Adds `impactOffset` and `impactHeight` (in mm) to portal queries so range sessions, shot analysis, combine tests, and virtual sessions include face contact location.
