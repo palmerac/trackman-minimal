@@ -6,21 +6,24 @@ A streamlined, zero-bloat Chrome extension to capture and export Trackman golf s
 
 ---
 
-## What Makes this "Minimal"?
+## Key Upgrades & Features
 
-This fork is designed for golfers and analysts who want clean, fast CSV exports without unnecessary UI clutter, extra background overhead, or AI prompt tooling:
+This fork is built for golfers and analysts who want clean, fast CSV exports of their simulator practice sessions without unnecessary UI clutter, background overhead, or AI prompt tooling:
 
-1. **Club Face Impact Metrics (PR #12):**
+1. **Export Range & Shot Analysis from the Main Portal Page:**
+   - The original extension was restricted to Course Play and Map My Bag.
+   - **Trackman Minimal** adds full support for **Virtual Range**, **Shot Analysis**, and **Combine Tests** directly from the main activities page (`portal.trackmangolf.com/player/activities`), allowing you to export your standard range sessions with a single click.
+2. **Club Face Impact Metrics (PR #12):**
    - Incorporates the GraphQL stroke measurement improvements from [`criticalberne/TrackPull#12`](https://github.com/criticalberne/TrackPull/pull/12).
    - Adds `impactOffset` and `impactHeight` (in mm) to portal queries so range sessions, shot analysis, combine tests, and virtual sessions include face contact location.
-2. **Locked Export Settings (Zero Clutter):**
+3. **Locked Export Settings (Zero Clutter):**
    - Automatically locked to standard units: **mph** (speed), **yards** (distance), and **Mat** (hitting surface).
    - Removed redundant unit and surface dropdown selectors from the popup UI.
-3. **No Settings / Options Page:**
+4. **No Settings / Options Page:**
    - Removed the separate options page (`options.html` / `options.js`) and popup gear icon, trimming ~80 KB of dead code and simplifying the extension lifecycle.
-4. **Single-Purpose CSV Export:**
+5. **Single-Purpose CSV Export:**
    - Removed the "Copy TSV" button and clipboard prompt-generation features. Focuses strictly on downloading clean, structured CSV files.
-5. **Bulk Import Clear Action:**
+6. **Bulk Import Clear Action:**
    - Added a dedicated **Clear** button to the portal session importer to purge local bulk snapshots, reset activity row buttons back to "Import", and enable checkboxes for fresh exports.
 
 ---
@@ -31,7 +34,7 @@ This fork is designed for golfers and analysts who want clean, fast CSV exports 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/aaronpalmer/trackman-minimal.git
+   git clone https://github.com/palmerac/trackman-minimal.git
    cd trackman-minimal
    ```
 2. Install dependencies and build the extension:
@@ -59,7 +62,7 @@ This fork is designed for golfers and analysts who want clean, fast CSV exports 
 1. Log into your account at [portal.trackmangolf.com](https://portal.trackmangolf.com).
 2. Open the extension popup and click **Grant Access** (one-time permission for portal access).
 3. Navigate to `portal.trackmangolf.com/player/activities`.
-4. Open the extension popup to view your recent sessions (Course Play, Virtual Range, Shot Analysis, Combine).
+4. Open the extension popup to view your recent sessions (**Virtual Range**, **Shot Analysis**, **Course Play**, **Combine**).
 5. Select specific sessions or click **Import all**.
 6. Click **Export CSV** to download a single, unified CSV file with all shots and sessions combined.
 7. Click **Clear** whenever you want to reset the imported state and clear stored session snapshots.
