@@ -1,7 +1,7 @@
 {
-  "name": "trackv3",
-  "version": "1.9.1",
-  "description": "<p align=\"center\">   <img src=\"TrackPuller.png\" alt=\"TrackPull\" width=\"300\"> </p>",
+  "name": "trackman-minimal",
+  "version": "1.0.0",
+  "description": "Minimal, fast Chrome extension to export Trackman shot data to CSV",
   "main": "index.js",
   "directories": {
     "test": "tests"
@@ -13,16 +13,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/criticalberne/TrackPull.git"
+    "url": "git+https://github.com/aaronpalmer/trackman-minimal.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["trackman", "golf", "csv", "export", "chrome-extension"],
+  "author": "Aaron Palmer",
   "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/criticalberne/TrackPull/issues"
+    "url": "https://github.com/aaronpalmer/trackman-minimal/issues"
   },
-  "homepage": "https://github.com/criticalberne/TrackPull#readme",
+  "homepage": "https://github.com/aaronpalmer/trackman-minimal#readme",
   "devDependencies": {
     "@types/chrome": "^0.2.2",
     "esbuild": "^0.28.0",

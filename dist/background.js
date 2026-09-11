@@ -34,6 +34,8 @@
         "FaceToPath",
         "SwingDirection",
         "DynamicLoft",
+        "DynamicLie",
+        "SwingPlane",
         // Launch & Spin
         "LaunchAngle",
         "LaunchDirection",
@@ -71,6 +73,8 @@
         FaceToPath: "Face To Path",
         SwingDirection: "Swing Direction",
         DynamicLoft: "Dynamic Loft",
+        DynamicLie: "Dynamic Lie",
+        SwingPlane: "Swing Plane",
         SpinRate: "Spin Rate",
         SpinAxis: "Spin Axis",
         SpinLoft: "Spin Loft",
@@ -103,6 +107,7 @@
         swingDirection: "SwingDirection",
         swingPlane: "SwingPlane",
         dynamicLoft: "DynamicLoft",
+        dynamicLie: "DynamicLie",
         spinRate: "SpinRate",
         ballSpin: "SpinRate",
         spinAxis: "SpinAxis",
@@ -149,6 +154,8 @@
         FaceAngle: true,
         FaceToPath: true,
         DynamicLoft: true,
+        DynamicLie: true,
+        SwingPlane: true,
         LaunchAngle: true,
         LaunchDirection: true,
         LandingAngle: true
@@ -177,8 +184,6 @@
         TRACKMAN_DATA: "trackmanData",
         SPEED_UNIT: "speedUnit",
         DISTANCE_UNIT: "distanceUnit",
-        SELECTED_PROMPT_ID: "selectedPromptId",
-        AI_SERVICE: "aiService",
         HITTING_SURFACE: "hittingSurface",
         INCLUDE_AVERAGES: "includeAverages",
         SESSION_HISTORY: "sessionHistory",
@@ -444,7 +449,7 @@
     }
     return lines.join("\n");
   }
-  function writeCsv(session, includeAverages = true, metricOrder, unitChoice = DEFAULT_UNIT_CHOICE, hittingSurface) {
+  function writeCsv(session, includeAverages = false, metricOrder, unitChoice = DEFAULT_UNIT_CHOICE, hittingSurface) {
     const orderedMetrics = orderMetricsByPriority(
       session.metric_names,
       metricOrder ?? METRIC_COLUMN_ORDER
@@ -599,7 +604,7 @@
     return pickClubName(container.club) ?? pickClubName(container.Club) ?? pickClubName(container.clubName) ?? pickClubName(container.name);
   }
   function getStrokeMeasurement(stroke) {
-    const normalized = isRecord(stroke.NormalizedMeasurement) ? stroke.NormalizedMeasurement : null;
+    const normalized = isRecord(stroke.normalizedMeasurement) ? stroke.normalizedMeasurement : isRecord(stroke.NormalizedMeasurement) ? stroke.NormalizedMeasurement : null;
     const measurement = isRecord(stroke.measurement) ? stroke.measurement : isRecord(stroke.Measurement) ? stroke.Measurement : null;
     if (measurement && normalized) {
       return { ...measurement, ...normalized };
@@ -642,7 +647,7 @@
       return;
     }
     for (const [key, nested] of Object.entries(value)) {
-      if (key === "measurement" || key === "Measurement" || key === "NormalizedMeasurement") {
+      if (key === "measurement" || key === "Measurement" || key === "normalizedMeasurement" || key === "NormalizedMeasurement") {
         continue;
       }
       if (Array.isArray(nested) || isRecord(nested)) {
@@ -970,7 +975,7 @@
                 unitChoice = migrateLegacyPref(result["unitPreference"]);
               }
               const surface = result[STORAGE_KEYS.HITTING_SURFACE] ?? "Mat";
-              const includeAverages = result[STORAGE_KEYS.INCLUDE_AVERAGES] === void 0 ? true : Boolean(result[STORAGE_KEYS.INCLUDE_AVERAGES]);
+              const includeAverages = result[STORAGE_KEYS.INCLUDE_AVERAGES] === void 0 ? false : Boolean(result[STORAGE_KEYS.INCLUDE_AVERAGES]);
               const csvContent = writeCsv(data, includeAverages, void 0, unitChoice, surface);
               const rawDate = data.date || "unknown";
               const safeDate = rawDate.replace(/[:.]/g, "-").replace(/[/\\?%*|"<>]/g, "");

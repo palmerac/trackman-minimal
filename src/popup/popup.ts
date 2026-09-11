@@ -32,10 +32,6 @@ import {
 import { getBulkImportedSessions, clearBulkImportedSessions } from "../shared/bulk_import_store";
 import { writeBulkCsv } from "../shared/csv_writer";
 import { writeTsv } from "../shared/tsv_writer";
-import { BUILTIN_PROMPTS } from "../shared/prompt_types";
-import type { CustomPrompt, PromptItem } from "../shared/prompt_types";
-import { assemblePrompt, buildUnitLabel, countSessionShots } from "../shared/prompt_builder";
-import { loadCustomPrompts } from "../shared/custom_prompts";
 import { hasPortalPermission, requestPortalPermission, PORTAL_ORIGINS } from "../shared/portalPermissions";
 import { formatActivityDate, getPortalActivityDisplayLabel } from "../shared/activity_helpers";
 import { RUNTIME_MESSAGE_TYPES } from "../shared/runtime_messages";
@@ -67,17 +63,10 @@ export function escapeHtml(value: string): string {
 let cachedData: SessionData | null = null;
 let cachedUnitChoice: UnitChoice = DEFAULT_UNIT_CHOICE;
 let cachedSurface: "Grass" | "Mat" = "Mat";
-let cachedCustomPrompts: CustomPrompt[] = [];
 let cachedPortalActivities: ActivitySummary[] = [];
 let activeBulkImportJob: BulkImportJob | null = null;
 let bulkImportRunning = false;
 let bulkImportPauseRequested = false;
-
-const AI_URLS: Record<string, string> = {
-  "ChatGPT": "https://chatgpt.com",
-  "Claude": "https://claude.ai",
-  "Gemini": "https://gemini.google.com",
-};
 
 /** URL pattern for portal activity pages. Captures the base64 activity ID. */
 const PORTAL_ACTIVITY_PATTERN = /^https:\/\/portal\.trackmangolf\.com\/player\/activities\/([A-Za-z0-9+/=]+)$/;
@@ -219,13 +208,19 @@ function responseContainsMeasurement(value: unknown): boolean {
   if (
     record.measurement ||
     record.Measurement ||
+    record.normalizedMeasurement ||
     record.NormalizedMeasurement
   ) {
     return true;
   }
 
   return Object.entries(record).some(([key, nested]) => {
-    if (key === "measurement" || key === "Measurement" || key === "NormalizedMeasurement") {
+    if (
+      key === "measurement" ||
+      key === "Measurement" ||
+      key === "normalizedMeasurement" ||
+      key === "NormalizedMeasurement"
+    ) {
       return false;
     }
     return responseContainsMeasurement(nested);
@@ -390,6 +385,7 @@ function renderBulkImportJob(job: BulkImportJob | null = activeBulkImportJob): v
   const resumeBtn = document.getElementById("bulk-import-resume-btn") as HTMLButtonElement | null;
   const retryBtn = document.getElementById("bulk-import-retry-btn") as HTMLButtonElement | null;
   const exportBtn = document.getElementById("bulk-export-csv-btn") as HTMLButtonElement | null;
+  const clearBtn = document.getElementById("bulk-clear-btn") as HTMLButtonElement | null;
   const importAllBtn = document.getElementById("bulk-import-all-btn") as HTMLButtonElement | null;
 
   if (progressEl) {
@@ -408,6 +404,7 @@ function renderBulkImportJob(job: BulkImportJob | null = activeBulkImportJob): v
   if (resumeBtn) resumeBtn.disabled = !job || job.state !== "paused" || bulkImportRunning;
   if (retryBtn) retryBtn.disabled = !job || job.failed === 0 || bulkImportRunning;
   if (exportBtn) exportBtn.disabled = !job || job.imported === 0;
+  if (clearBtn) clearBtn.disabled = !job || bulkImportRunning;
   if (importAllBtn) importAllBtn.disabled = cachedPortalActivities.length === 0 || bulkImportRunning;
 
   for (const activity of cachedPortalActivities) {
@@ -692,8 +689,8 @@ function renderBulkImportControls(tabId: number, activities: ActivitySummary[]):
 
   topRow.append(selectLabel, importSelectedBtn, importAllBtn);
 
-  const bottomRow = document.createElement("div");
-  bottomRow.className = "bulk-import-row";
+  const actionRow = document.createElement("div");
+  actionRow.className = "bulk-import-row";
 
   const pauseBtn = document.createElement("button");
   pauseBtn.id = "bulk-import-pause-btn";
@@ -722,6 +719,11 @@ function renderBulkImportControls(tabId: number, activities: ActivitySummary[]):
     void retryFailedBulkImport(tabId);
   });
 
+  actionRow.append(pauseBtn, resumeBtn, retryBtn);
+
+  const dataRow = document.createElement("div");
+  dataRow.className = "bulk-import-row";
+
   const exportBtn = document.createElement("button");
   exportBtn.id = "bulk-export-csv-btn";
   exportBtn.className = "bulk-action-btn";
@@ -731,14 +733,34 @@ function renderBulkImportControls(tabId: number, activities: ActivitySummary[]):
     void exportBulkImportedCsv();
   });
 
-  bottomRow.append(pauseBtn, resumeBtn, retryBtn, exportBtn);
+  const clearBtn = document.createElement("button");
+  clearBtn.id = "bulk-clear-btn";
+  clearBtn.className = "bulk-action-btn";
+  clearBtn.textContent = "Clear";
+  clearBtn.title = "Clear imported sessions";
+  clearBtn.disabled = true;
+  clearBtn.addEventListener("click", async () => {
+    if (bulkImportRunning) return;
+    if (activeBulkImportJob) {
+      await clearBulkImportedSessions(activeBulkImportJob.id).catch(() => undefined);
+    }
+    await chrome.storage.local.remove([
+      STORAGE_KEYS.BULK_IMPORT_STATUS,
+      STORAGE_KEYS.IMPORT_STATUS,
+    ]);
+    activeBulkImportJob = null;
+    renderBulkImportJob(null);
+    showToast("Imported sessions cleared", "success");
+  });
+
+  dataRow.append(exportBtn, clearBtn);
 
   const progress = document.createElement("div");
   progress.id = "bulk-import-progress";
   progress.className = "bulk-import-progress";
   progress.style.display = "none";
 
-  controls.append(topRow, bottomRow, progress);
+  controls.append(topRow, actionRow, dataRow, progress);
   return controls;
 }
 
@@ -916,77 +938,6 @@ function renderStatCard(): void {
   contentEl.innerHTML = html;
 }
 
-async function renderPromptSelect(select: HTMLSelectElement): Promise<void> {
-  const customPrompts = await loadCustomPrompts();
-  cachedCustomPrompts = customPrompts;
-
-  select.innerHTML = "";
-
-  // "My Prompts" group at top (only if custom prompts exist) -- per user decision
-  if (customPrompts.length > 0) {
-    const myGroup = document.createElement("optgroup");
-    myGroup.label = "My Prompts";
-    for (const cp of customPrompts) {
-      const opt = document.createElement("option");
-      opt.value = cp.id;
-      opt.textContent = cp.name;
-      myGroup.appendChild(opt);
-    }
-    select.appendChild(myGroup);
-  }
-
-  // Built-in groups by tier
-  const tiers: Array<{ label: string; value: "beginner" | "intermediate" | "advanced" }> = [
-    { label: "Beginner", value: "beginner" },
-    { label: "Intermediate", value: "intermediate" },
-    { label: "Advanced", value: "advanced" },
-  ];
-  for (const tier of tiers) {
-    const group = document.createElement("optgroup");
-    group.label = tier.label;
-    for (const p of BUILTIN_PROMPTS.filter(b => b.tier === tier.value)) {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.name;
-      group.appendChild(opt);
-    }
-    select.appendChild(group);
-  }
-}
-
-function findPromptById(id: string): PromptItem | undefined {
-  const builtIn = BUILTIN_PROMPTS.find(p => p.id === id);
-  if (builtIn) return builtIn;
-  return cachedCustomPrompts.find(p => p.id === id);
-}
-
-function updatePreview(): void {
-  const previewEl = document.getElementById("prompt-preview-content") as HTMLPreElement | null;
-  const promptSelect = document.getElementById("prompt-select") as HTMLSelectElement | null;
-  if (!previewEl || !promptSelect) return;
-
-  if (!cachedData) {
-    previewEl.textContent = "(No shot data captured yet)";
-    return;
-  }
-
-  const prompt = findPromptById(promptSelect.value);
-  if (!prompt) {
-    previewEl.textContent = "";
-    return;
-  }
-
-  const tsvData = writeTsv(cachedData, cachedUnitChoice, cachedSurface);
-  const metadata = {
-    date: cachedData.date,
-    shotCount: countSessionShots(cachedData),
-    unitLabel: buildUnitLabel(cachedUnitChoice),
-    hittingSurface: cachedSurface,
-  };
-
-  previewEl.textContent = assemblePrompt(prompt, tsvData, metadata);
-}
-
 /**
  * Display import result using the existing toast system (RESIL-02).
  * For success: show a brief success toast.
@@ -1056,69 +1007,40 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Unit dropdowns: read saved values, migrate from legacy key if needed
-    const unitResult = await new Promise<Record<string, unknown>>((resolve) => {
-      chrome.storage.local.get<Record<string, unknown>>([STORAGE_KEYS.SPEED_UNIT, STORAGE_KEYS.DISTANCE_UNIT, STORAGE_KEYS.HITTING_SURFACE, STORAGE_KEYS.INCLUDE_AVERAGES, "unitPreference"], resolve);
-    });
-
-    let speedUnit = unitResult[STORAGE_KEYS.SPEED_UNIT] as string | undefined;
-    let distanceUnit = unitResult[STORAGE_KEYS.DISTANCE_UNIT] as string | undefined;
-
-    if (!speedUnit || !distanceUnit) {
-      const migrated = migrateLegacyPref(unitResult["unitPreference"] as string | undefined);
-      speedUnit = migrated.speed;
-      distanceUnit = migrated.distance;
-      chrome.storage.local.set({
-        [STORAGE_KEYS.SPEED_UNIT]: speedUnit,
-        [STORAGE_KEYS.DISTANCE_UNIT]: distanceUnit,
-      });
-      chrome.storage.local.remove("unitPreference");
-    }
-
-    // Cache the unit choice after migration/resolution
+    // Unit dropdowns & hitting surface: locked to mph, yards, Mat
     cachedUnitChoice = {
-      speed: speedUnit as "mph" | "m/s",
-      distance: distanceUnit as "yards" | "meters",
+      speed: "mph",
+      distance: "yards",
     };
+    cachedSurface = "Mat";
 
-    // Resolve surface preference with Mat default
-    const surface = (unitResult[STORAGE_KEYS.HITTING_SURFACE] as "Grass" | "Mat") ?? "Mat";
-    cachedSurface = surface;
+    chrome.storage.local.set({
+      [STORAGE_KEYS.SPEED_UNIT]: "mph",
+      [STORAGE_KEYS.DISTANCE_UNIT]: "yards",
+      [STORAGE_KEYS.HITTING_SURFACE]: "Mat",
+    });
+    chrome.storage.local.remove("unitPreference");
 
     const speedSelect = document.getElementById("speed-unit") as HTMLSelectElement | null;
     const distanceSelect = document.getElementById("distance-unit") as HTMLSelectElement | null;
+    const surfaceSelect = document.getElementById("surface-select") as HTMLSelectElement | null;
 
     if (speedSelect) {
-      speedSelect.value = speedUnit;
-      speedSelect.addEventListener("change", () => {
-        chrome.storage.local.set({ [STORAGE_KEYS.SPEED_UNIT]: speedSelect.value });
-        cachedUnitChoice = { ...cachedUnitChoice, speed: speedSelect.value as "mph" | "m/s" };
-        renderStatCard();
-      });
+      speedSelect.value = "mph";
     }
-
     if (distanceSelect) {
-      distanceSelect.value = distanceUnit;
-      distanceSelect.addEventListener("change", () => {
-        chrome.storage.local.set({ [STORAGE_KEYS.DISTANCE_UNIT]: distanceSelect.value });
-        cachedUnitChoice = { ...cachedUnitChoice, distance: distanceSelect.value as "yards" | "meters" };
-        renderStatCard();
-      });
+      distanceSelect.value = "yards";
     }
-
-    const surfaceSelect = document.getElementById("surface-select") as HTMLSelectElement | null;
     if (surfaceSelect) {
-      surfaceSelect.value = surface;
-      surfaceSelect.addEventListener("change", () => {
-        chrome.storage.local.set({ [STORAGE_KEYS.HITTING_SURFACE]: surfaceSelect.value });
-        cachedSurface = surfaceSelect.value as "Grass" | "Mat";
-      });
+      surfaceSelect.value = "Mat";
     }
 
     const includeAveragesCheckbox = document.getElementById("include-averages-checkbox") as HTMLInputElement | null;
     if (includeAveragesCheckbox) {
-      const stored = unitResult[STORAGE_KEYS.INCLUDE_AVERAGES];
-      includeAveragesCheckbox.checked = stored === undefined ? true : Boolean(stored);
+      chrome.storage.local.get([STORAGE_KEYS.INCLUDE_AVERAGES], (result) => {
+        const stored = result[STORAGE_KEYS.INCLUDE_AVERAGES];
+        includeAveragesCheckbox.checked = stored === undefined ? false : Boolean(stored);
+      });
       includeAveragesCheckbox.addEventListener("change", () => {
         chrome.storage.local.set({ [STORAGE_KEYS.INCLUDE_AVERAGES]: includeAveragesCheckbox.checked });
       });
@@ -1129,7 +1051,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         cachedData = (message.data as SessionData) ?? null;
         updateShotCount(message.data);
         updateExportButtonVisibility(message.data);
-        updatePreview();
         renderStatCard();
       }
       if (message.type === 'HISTORY_ERROR') {
@@ -1165,57 +1086,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       clearBtn.addEventListener("click", handleClearClick);
     }
 
-    const settingsBtn = document.getElementById("settings-btn");
-    if (settingsBtn) {
-      settingsBtn.addEventListener("click", () => {
-        chrome.runtime.openOptionsPage();
-      });
-    }
 
-    const promptSelect = document.getElementById("prompt-select") as HTMLSelectElement | null;
-    if (promptSelect) {
-      await renderPromptSelect(promptSelect);
-
-      // Restore last-selected prompt
-      const promptResult = await new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.local.get<Record<string, unknown>>([STORAGE_KEYS.SELECTED_PROMPT_ID], resolve);
-      });
-      const savedPromptId = promptResult[STORAGE_KEYS.SELECTED_PROMPT_ID] as string | undefined;
-      if (savedPromptId) {
-        promptSelect.value = savedPromptId;
-        // If the saved ID doesn't match any option (deleted custom prompt), fall back
-        if (promptSelect.value !== savedPromptId) {
-          promptSelect.value = "quick-summary-beginner";
-          chrome.storage.local.set({ [STORAGE_KEYS.SELECTED_PROMPT_ID]: "quick-summary-beginner" });
-        }
-      }
-
-      // Auto-save on change
-      promptSelect.addEventListener("change", () => {
-        chrome.storage.local.set({ [STORAGE_KEYS.SELECTED_PROMPT_ID]: promptSelect.value });
-        updatePreview();
-      });
-    }
-
-    // Restore AI service preference (from sync storage for cross-device)
-    const aiServiceSelect = document.getElementById("ai-service-select") as HTMLSelectElement | null;
-    if (aiServiceSelect) {
-      const syncResult = await new Promise<Record<string, unknown>>((resolve) => {
-        chrome.storage.sync.get<Record<string, unknown>>([STORAGE_KEYS.AI_SERVICE], resolve);
-      });
-      const savedService = syncResult[STORAGE_KEYS.AI_SERVICE] as string | undefined;
-      if (savedService) {
-        aiServiceSelect.value = savedService;
-      }
-      // Auto-save on change
-      aiServiceSelect.addEventListener("change", () => {
-        chrome.storage.sync.set({ [STORAGE_KEYS.AI_SERVICE]: aiServiceSelect.value });
-        updatePreview();
-      });
-    }
-
-    // Initial preview render (after both selects have their saved values restored)
-    updatePreview();
     renderStatCard();
 
     // Portal permission check — skip GraphQL health check (cookies don't work from service worker)
@@ -1292,67 +1163,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
-    // Open in AI button handler (AILN-01, AILN-02, AILN-03)
-    const openAiBtn = document.getElementById("open-ai-btn");
-    if (openAiBtn) {
-      openAiBtn.addEventListener("click", async () => {
-        if (!cachedData || !promptSelect || !aiServiceSelect) return;
-
-        const selectedPromptId = promptSelect.value;
-        const selectedService = aiServiceSelect.value;
-        const prompt = findPromptById(selectedPromptId);
-        if (!prompt) return;
-
-        const tsvData = writeTsv(cachedData, cachedUnitChoice, cachedSurface);
-        const metadata = {
-          date: cachedData.date,
-          shotCount: countSessionShots(cachedData),
-          unitLabel: buildUnitLabel(cachedUnitChoice),
-          hittingSurface: cachedSurface,
-        };
-        const assembled = assemblePrompt(prompt, tsvData, metadata);
-
-        try {
-          await navigator.clipboard.writeText(assembled);
-          // Fire-and-forget tab creation -- do not await
-          chrome.tabs.create({ url: AI_URLS[selectedService] });
-          showToast(`Prompt + data copied. Paste it into ${selectedService}.`, "success");
-        } catch (err) {
-          console.error("AI launch failed:", err);
-          showToast("Failed to copy prompt", "error");
-        }
-      });
-    }
-
-    // Copy Prompt + Data button handler (AILN-04)
-    const copyPromptBtn = document.getElementById("copy-prompt-btn");
-    if (copyPromptBtn) {
-      copyPromptBtn.addEventListener("click", async () => {
-        if (!cachedData || !promptSelect) return;
-
-        const selectedPromptId = promptSelect.value;
-        const prompt = findPromptById(selectedPromptId);
-        if (!prompt) return;
-
-        const tsvData = writeTsv(cachedData, cachedUnitChoice, cachedSurface);
-        const metadata = {
-          date: cachedData.date,
-          shotCount: countSessionShots(cachedData),
-          unitLabel: buildUnitLabel(cachedUnitChoice),
-          hittingSurface: cachedSurface,
-        };
-        const assembled = assemblePrompt(prompt, tsvData, metadata);
-
-        try {
-          await navigator.clipboard.writeText(assembled);
-          showToast("Prompt + data copied to clipboard.", "success");
-        } catch (err) {
-          console.error("Clipboard write failed:", err);
-          showToast("Failed to copy prompt", "error");
-        }
-      });
-    }
-
   } catch (error) {
     console.error("Error loading popup data:", error);
     showToast("Error loading shot count", "error");
@@ -1391,14 +1201,12 @@ function updateShotCount(data: unknown): void {
 
 function updateExportButtonVisibility(data: unknown): void {
   const exportRow = document.getElementById("export-row");
-  const aiSection = document.getElementById("ai-section");
   const clearBtn = document.getElementById("clear-btn");
 
   const hasValidData = data && typeof data === "object" &&
     (data as Record<string, unknown>)["club_groups"];
 
   if (exportRow) exportRow.style.display = hasValidData ? "flex" : "none";
-  if (aiSection) aiSection.style.display = hasValidData ? "block" : "none";
   if (clearBtn) clearBtn.style.display = hasValidData ? "block" : "none";
 }
 

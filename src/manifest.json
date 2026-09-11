@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TrackPull",
-  "version": "1.9.1",
-  "description": "Pull shot data from Trackman reports",
+  "name": "Trackman Minimal",
+  "version": "1.0.0",
+  "description": "Minimal, fast Chrome extension to export Trackman shot data to CSV",
   "permissions": ["storage", "downloads", "clipboardWrite", "activeTab"],
   "host_permissions": ["https://web-dynamic-reports.trackmangolf.com/*"],
   "optional_host_permissions": [
@@ -43,10 +43,6 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {"16": "icons/icon16.png"}
-  },
-  "options_ui": {
-    "page": "options.html",
-    "open_in_tab": true
   },
   "icons": {"16": "icons/icon16.png"}
 }

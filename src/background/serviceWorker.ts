@@ -103,7 +103,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequestMessage, sender, se
         }
         const surface = (result[STORAGE_KEYS.HITTING_SURFACE] as "Grass" | "Mat") ?? "Mat";
         const includeAverages = result[STORAGE_KEYS.INCLUDE_AVERAGES] === undefined
-          ? true
+          ? false
           : Boolean(result[STORAGE_KEYS.INCLUDE_AVERAGES]);
         const csvContent = writeCsv(data, includeAverages, undefined, unitChoice, surface);
         const rawDate = data.date || "unknown";

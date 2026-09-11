@@ -47,12 +47,10 @@ describe("MV3 manifest build requirements", () => {
     }
   });
 
-  it("has source files for popup/options HTML and every manifest icon reference", () => {
+  it("has source files for popup HTML and every manifest icon reference", () => {
     expect(manifest.action?.default_popup).toBe("popup.html");
     expect(existsSync("src/popup/popup.html")).toBe(true);
-
-    expect(manifest.options_ui?.page).toBe("options.html");
-    expect(existsSync("src/options/options.html")).toBe(true);
+    expect(manifest.options_ui).toBeUndefined();
 
     const icons = [
       ...Object.values(manifest.action?.default_icon ?? {}),
@@ -85,7 +83,6 @@ describe("MV3 manifest build requirements", () => {
 
     expect(script).toContain("copy_required_file");
     expect(script).toContain('copy_required_file "src/popup/popup.html"');
-    expect(script).toContain('copy_required_file "src/options/options.html"');
     expect(script).toContain("validate_manifest_assets");
     expect(script).toContain("Manifest-required asset missing from dist/");
     expect(script).not.toContain("Warning: popup.html not found");

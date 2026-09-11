@@ -412,6 +412,56 @@ describe("parsePortalActivity", () => {
       expect(session!.club_groups[1].shots[0].metrics["Total"]).toBe("171.5");
       expect(session!.metric_names).toEqual(["Carry", "Total"]);
     });
+
+    it("prioritizes normalizedMeasurement over measurement and maps new delivery/impact metrics", () => {
+      const activity: GraphQLActivity = {
+        id: btoa("SessionActivity\nnormalized-test-uuid"),
+        time: "2026-03-01",
+        strokes: [
+          {
+            club: "Driver",
+            measurement: {
+              clubSpeed: 105.0,
+              ballSpeed: 155.0,
+              carry: 240.0,
+              spinRate: 2800,
+              dynamicLie: 58.5,
+              swingPlane: 62.1,
+              lowPointDistance: 3.2,
+              impactHeight: 4.0,
+              impactOffset: -2.5,
+              tempo: 3.1,
+              side: -5.2,
+              curve: 12.4,
+            },
+            normalizedMeasurement: {
+              carry: 252.0,
+              spinRate: 2500,
+            },
+          },
+        ],
+      };
+
+      const session = parsePortalActivity(activity);
+      expect(session).not.toBeNull();
+      const driverShot = session!.club_groups[0].shots[0];
+
+      // Normalized values override raw
+      expect(driverShot.metrics["Carry"]).toBe("252");
+      expect(driverShot.metrics["SpinRate"]).toBe("2500");
+
+      // Non-overridden raw fields persist
+      expect(driverShot.metrics["ClubSpeed"]).toBe("105");
+      expect(driverShot.metrics["BallSpeed"]).toBe("155");
+      expect(driverShot.metrics["DynamicLie"]).toBe("58.5");
+      expect(driverShot.metrics["SwingPlane"]).toBe("62.1");
+      expect(driverShot.metrics["LowPointDistance"]).toBe("3.2");
+      expect(driverShot.metrics["ImpactHeight"]).toBe("4");
+      expect(driverShot.metrics["ImpactOffset"]).toBe("-2.5");
+      expect(driverShot.metrics["Tempo"]).toBe("3.1");
+      expect(driverShot.metrics["Side"]).toBe("-5.2");
+      expect(driverShot.metrics["Curve"]).toBe("12.4");
+    });
   });
 
   describe("deduplication identity (PIPE-03)", () => {

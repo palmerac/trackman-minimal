@@ -62,6 +62,8 @@
         FaceToPath: "Face To Path",
         SwingDirection: "Swing Direction",
         DynamicLoft: "Dynamic Loft",
+        DynamicLie: "Dynamic Lie",
+        SwingPlane: "Swing Plane",
         SpinRate: "Spin Rate",
         SpinAxis: "Spin Axis",
         SpinLoft: "Spin Loft",

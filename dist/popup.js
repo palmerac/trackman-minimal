@@ -13,6 +13,8 @@
     "FaceToPath",
     "SwingDirection",
     "DynamicLoft",
+    "DynamicLie",
+    "SwingPlane",
     // Launch & Spin
     "LaunchAngle",
     "LaunchDirection",
@@ -50,6 +52,8 @@
     FaceToPath: "Face To Path",
     SwingDirection: "Swing Direction",
     DynamicLoft: "Dynamic Loft",
+    DynamicLie: "Dynamic Lie",
+    SwingPlane: "Swing Plane",
     SpinRate: "Spin Rate",
     SpinAxis: "Spin Axis",
     SpinLoft: "Spin Loft",
@@ -95,6 +99,8 @@
     FaceAngle: true,
     FaceToPath: true,
     DynamicLoft: true,
+    DynamicLie: true,
+    SwingPlane: true,
     LaunchAngle: true,
     LaunchDirection: true,
     LandingAngle: true
@@ -112,14 +118,10 @@
   };
 
   // src/shared/constants.ts
-  var CUSTOM_PROMPT_KEY_PREFIX = "customPrompt_";
-  var CUSTOM_PROMPT_IDS_KEY = "customPromptIds";
   var STORAGE_KEYS = {
     TRACKMAN_DATA: "trackmanData",
     SPEED_UNIT: "speedUnit",
     DISTANCE_UNIT: "distanceUnit",
-    SELECTED_PROMPT_ID: "selectedPromptId",
-    AI_SERVICE: "aiService",
     HITTING_SURFACE: "hittingSurface",
     INCLUDE_AVERAGES: "includeAverages",
     SESSION_HISTORY: "sessionHistory",
@@ -169,17 +171,6 @@
     "inches": "in",
     "cm": "cm"
   };
-  function migrateLegacyPref(stored) {
-    switch (stored) {
-      case "metric":
-        return { speed: "m/s", distance: "meters" };
-      case "hybrid":
-        return { speed: "mph", distance: "meters" };
-      case "imperial":
-      default:
-        return { speed: "mph", distance: "yards" };
-    }
-  }
   function extractUnitParams(metadataParams) {
     const result = {};
     for (const [key, value] of Object.entries(metadataParams)) {
@@ -346,7 +337,7 @@
   var FETCH_ACTIVITIES_QUERY = `
   query GetPlayerActivities($skip: Int!, $take: Int!) {
     me {
-      activities(kinds: [COURSE_PLAY, MAP_MY_BAG], skip: $skip, take: $take) {
+      activities(kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST], skip: $skip, take: $take) {
         totalCount
         pageInfo {
           hasNextPage
@@ -583,7 +574,7 @@
   clubSpeed ballSpeed smashFactor attackAngle clubPath faceAngle
   faceToPath swingDirection swingPlane dynamicLoft spinRate spinAxis spinLoft
   launchAngle launchDirection carry total carrySide totalSide
-  maxHeight landingAngle hangTime
+  maxHeight landingAngle hangTime impactOffset impactHeight
 `;
   var SCORECARD_SHOT_MEASUREMENT_FIELDS = `
   ballSpeed carrySideActual carryActual launchDirection maxHeight carry total
@@ -609,10 +600,10 @@
         id time strokeCount strokes { ${STROKE_FIELDS} }
       }
       ... on VirtualRangeSessionActivity {
-        id time strokeCount strokes { ${STROKE_FIELDS} }
+        id time strokes { ${STROKE_FIELDS} }
       }
       ... on ShotAnalysisSessionActivity {
-        id time strokeCount strokes { ${STROKE_FIELDS} }
+        id time strokes { ${STROKE_FIELDS} }
       }
       ... on CombineTestActivity {
         id time strokes { ${STROKE_FIELDS} }
@@ -1040,7 +1031,7 @@
     }
     return lines.join("\n");
   }
-  function writeBulkCsv(sessions, includeAverages = true, metricOrder, unitChoice = DEFAULT_UNIT_CHOICE, hittingSurface) {
+  function writeBulkCsv(sessions, includeAverages = false, metricOrder, unitChoice = DEFAULT_UNIT_CHOICE, hittingSurface) {
     const allMetricNames = Array.from(
       new Set(sessions.flatMap((session) => session.metric_names))
     );
@@ -1211,239 +1202,6 @@
     return parts.join("\n");
   }
 
-  // src/shared/prompt_types.ts
-  var BUILTIN_PROMPTS = [
-    {
-      id: "session-overview-beginner",
-      name: "Session Overview",
-      tier: "beginner",
-      topic: "overview",
-      template: `You are a friendly golf coach reviewing a player's Trackman session. Your job is to encourage them and help them improve.
-
-Here is the tab-separated Trackman golf session data from their session today:
-
-{{DATA}}
-
-Please review this data and give the player a warm, encouraging summary. Include:
-- 2 to 3 things they did well today (be specific, mention clubs or metrics if they stand out)
-- 1 to 2 things to focus on for next time (keep it simple and actionable)
-- A short encouraging closing message
-
-Set aside any obvious mishits when judging the session. Use simple language. Avoid heavy technical jargon. Speak directly to the player like a supportive coach.`
-    },
-    {
-      id: "club-breakdown-intermediate",
-      name: "Club-by-Club Breakdown",
-      tier: "intermediate",
-      topic: "club-breakdown",
-      template: `You are a golf performance analyst reviewing a player's Trackman session data.
-
-Here is the tab-separated Trackman golf session data:
-
-{{DATA}}
-
-Before analyzing, note how many shots each club has. Treat any club with fewer than 5 shots as low-confidence, and exclude obvious mishits from averages (mention any shots you exclude). If a Tag column is present, break results down by tag within each club.
-
-Please provide a club-by-club breakdown of this session. For each club represented in the data:
-- Summarize average carry distance and ball speed
-- Note the player's strengths with that club
-- Identify weaknesses or areas for improvement
-
-Then provide an overall summary:
-- Which clubs are performing the strongest?
-- Where are the biggest distance gaps between clubs? Are those gaps appropriate?
-- What 1 to 2 adjustments would most improve overall performance?
-
-If any suggested adjustment involves equipment (a different club, shaft, or loft), do not guess my current setup. Ask me short questions about the clubs and shafts I play now, and refine that recommendation after I answer.
-
-Use moderate technical depth. Briefly explain what metrics mean when you reference them.`
-    },
-    {
-      id: "consistency-analysis-advanced",
-      name: "Consistency Analysis",
-      tier: "advanced",
-      topic: "consistency",
-      template: `You are a technical golf data analyst. Analyze the following Trackman session data with a numbers-first approach.
-
-Tab-separated Trackman golf session data:
-
-{{DATA}}
-
-If you have a code execution or data analysis tool available, use it for the statistics below; otherwise present them as estimates and say so.
-
-Perform a consistency analysis across all shots and clubs:
-- Calculate or estimate standard deviation ranges for key metrics (club speed, ball speed, launch angle, spin rate, carry)
-- Identify which clubs show the tightest dispersion and which are most variable
-- Analyze shot-to-shot repeatability patterns: is the player consistent in face angle, club path, and dynamic loft?
-- Identify any outlier shots (significant deviations from the mean) and note which metrics are responsible
-- Provide a consistency rating summary per club and overall
-
-Ground rules:
-- Report the shot count per club and treat clubs with fewer than 5 shots as low-confidence
-- Exclude obvious mishits from averages and standard deviations, but list them as outliers
-- The data header notes the hitting surface; mat strikes can mask fat contact, so factor that into strike-quality judgments
-- If a metric referenced above is not present in the data, say so rather than estimating it
-
-Reference specific metric values and numbers throughout. Prioritize data over general advice.`
-    },
-    {
-      id: "launch-spin-intermediate",
-      name: "Launch & Spin Optimization",
-      tier: "intermediate",
-      topic: "launch-spin",
-      template: `You are a golf performance analyst specializing in launch conditions and spin optimization.
-
-Here is the tab-separated Trackman golf session data:
-
-{{DATA}}
-
-Analyze the player's launch and spin data:
-- Review launch angle and spin rate combinations per club
-- Compare them to typical optimal windows for each club type (e.g., driver: ~12-15 deg launch, ~2200-2700 rpm spin). These windows shift with ball speed: faster ball speeds favor lower spin and launch, slower ball speeds need more of both
-- Use spin axis to describe curve tendencies. For a right-handed player, a positive spin axis means the ball curves right (fade/slice) and a negative spin axis means it curves left (draw/hook); this is reversed for left-handers
-- Identify which clubs are closest to optimal and which are farthest
-
-For clubs that are outside optimal windows:
-- Explain what the current numbers mean in terms of ball flight (too high, too low, too much spin, etc.)
-- Suggest specific adjustments to move toward optimal conditions
-
-Before recommending any loft or shaft change, interview me briefly: ask whether I am right- or left-handed, what loft and shaft (flex and weight) I currently play in the relevant clubs, and whether this session used range balls or premium balls. Give your preliminary read from the data first, then refine the recommendations after I answer.
-
-If a metric referenced above is not in the data, say so rather than estimating it. Use moderate technical depth and explain what metrics mean for players who are learning.`
-    },
-    {
-      id: "distance-gapping-beginner",
-      name: "Distance Gapping Report",
-      tier: "beginner",
-      topic: "distance-gapping",
-      template: `You are a friendly golf coach helping a player understand their distance gapping.
-
-Here is the tab-separated Trackman golf session data:
-
-{{DATA}}
-
-Please review the carry and total distances for each club in this session. Then:
-- List the average carry distance for each club in a simple, easy-to-read format
-- Look at the gaps between consecutive clubs -- are there any big jumps or clubs that overlap?
-- Let the player know if their gapping looks good or if there are clubs that might be missing or overlapping
-- Give 1 to 2 friendly suggestions for the player's bag setup or club selection
-
-Keep a few things in mind:
-- Ignore obvious mishits when working out averages, and mention how many shots each club has
-- If it looks like some clubs are missing from the data, ask me what else is in my bag before judging coverage
-- One session is a starting point, not a final verdict -- say so if the data is thin
-
-Keep it simple and encouraging. Focus on practical take-aways the player can use on the course.`
-    },
-    {
-      id: "shot-shape-intermediate",
-      name: "Shot Shape & Dispersion",
-      tier: "intermediate",
-      topic: "shot-shape",
-      template: `You are a golf performance analyst reviewing a player's shot shape and dispersion patterns.
-
-Here is the tab-separated Trackman golf session data:
-
-{{DATA}}
-
-First: if I have not said whether I am right- or left-handed, ask me, because every direction below flips for left-handers. You may give a preliminary read assuming right-handed, clearly labeled as such.
-
-Analyze the player's shot shape and miss patterns:
-- Review face angle, club path, face-to-path, and curve values to characterize their typical shot shape per club. For a right-handed player, positive club path = in-to-out (draw-biased) and positive face angle = open to the target (starts right)
-- Identify if they play a consistent shot shape (draw, fade, straight) or if the pattern varies
-- Review the Side and CarrySide data to understand lateral dispersion -- how far off-center do shots typically land? State the sign convention you assume for these columns
-- Identify their most common miss direction and the likely technical cause (face angle, path, or both)
-
-Provide:
-- A shot shape profile for each club (e.g., "mild fade", "variable with occasional hook")
-- An overall assessment of dispersion consistency
-- 1 to 2 actionable suggestions to tighten their pattern
-
-Exclude obvious mishits from the pattern read (note them separately), and if a metric referenced above is not in the data, say so rather than estimating it.
-
-Use moderate technical depth. Briefly explain what each metric means.`
-    },
-    {
-      id: "club-delivery-advanced",
-      name: "Club Delivery Analysis",
-      tier: "advanced",
-      topic: "club-delivery",
-      template: `You are a technical golf analyst conducting a detailed club delivery analysis.
-
-Tab-separated Trackman golf session data:
-
-{{DATA}}
-
-Assume a right-handed player unless I have said otherwise; state that assumption and ask me to confirm. If you have a code execution or data analysis tool, use it for the statistics below; otherwise keep the analysis qualitative and label any numbers as estimates.
-
-Analyze club delivery metrics across all clubs and shots. Focus on:
-- Attack Angle: positive (ascending) vs negative (descending) and its effect on spin and launch
-- Club Path (in/out vs out/in) and how it correlates to curve and spin axis
-- Face Angle at impact and the face-to-path relationship as the primary driver of curvature
-- Dynamic Loft per club compared to expected values. If your conclusions depend on my actual club lofts, ask me for them rather than assuming stock lofts
-- Which delivery metrics most strongly relate to carry distance, spin rate, and side error for this player
-
-For each major club category (driver, irons, wedges):
-- Report average delivery numbers along with the shot count behind them
-- Identify the most impactful delivery variable affecting performance
-- Flag any delivery patterns that suggest mechanical inefficiency
-
-The data header notes the hitting surface; mat strikes can mask fat contact, so factor that into strike-quality judgments. Exclude obvious mishits from averages and list them separately. If a metric referenced above is not present in the data, say so rather than estimating it.
-
-Prioritize numbers and specific metric values. Provide a ranked list of delivery improvements by expected performance impact.`
-    },
-    {
-      id: "quick-summary-beginner",
-      name: "Quick Session Summary",
-      tier: "beginner",
-      topic: "quick-summary",
-      template: `You are a friendly golf coach. Give the player a fast, upbeat summary of their Trackman session.
-
-Here is the tab-separated Trackman golf session data from their session:
-
-{{DATA}}
-
-Provide a very short, friendly summary in 3 to 4 bullet points only. Cover:
-- Their best performing club today
-- Their longest carry shot (club and distance)
-- Their most consistent club (tightest results)
-- One quick positive takeaway to leave them feeling good
-
-Skip obvious mishits when picking the highlights. Keep it brief and encouraging. No heavy analysis needed -- just the headlines.`
-    }
-  ];
-
-  // src/shared/prompt_builder.ts
-  function assemblePrompt(prompt, tsvData, metadata) {
-    let dataBlock;
-    if (metadata !== void 0) {
-      let contextHeader = `Session: ${metadata.date} | ${metadata.shotCount} shots | Units: ${metadata.unitLabel}`;
-      if (metadata.hittingSurface !== void 0) {
-        contextHeader += ` | Surface: ${metadata.hittingSurface}`;
-      }
-      dataBlock = contextHeader + "\n\n" + tsvData;
-    } else {
-      dataBlock = tsvData;
-    }
-    return prompt.template.replace("{{DATA}}", dataBlock);
-  }
-  function buildUnitLabel(unitChoice) {
-    return `${unitChoice.speed} + ${unitChoice.distance}`;
-  }
-  function countSessionShots(session) {
-    return session.club_groups.reduce((total, club) => total + club.shots.length, 0);
-  }
-
-  // src/shared/custom_prompts.ts
-  async function loadCustomPrompts() {
-    const idsResult = await chrome.storage.sync.get([CUSTOM_PROMPT_IDS_KEY]);
-    const ids = idsResult[CUSTOM_PROMPT_IDS_KEY] ?? [];
-    if (ids.length === 0) return [];
-    const keys = ids.map((id) => CUSTOM_PROMPT_KEY_PREFIX + id);
-    const promptsResult = await chrome.storage.sync.get(keys);
-    return ids.map((id) => promptsResult[CUSTOM_PROMPT_KEY_PREFIX + id]).filter((p) => p !== void 0);
-  }
-
   // src/shared/portalPermissions.ts
   var PORTAL_ORIGINS = [
     "https://api.trackmangolf.com/*",
@@ -1532,16 +1290,10 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   var cachedData = null;
   var cachedUnitChoice = DEFAULT_UNIT_CHOICE;
   var cachedSurface = "Mat";
-  var cachedCustomPrompts = [];
   var cachedPortalActivities = [];
   var activeBulkImportJob = null;
   var bulkImportRunning = false;
   var bulkImportPauseRequested = false;
-  var AI_URLS = {
-    "ChatGPT": "https://chatgpt.com",
-    "Claude": "https://claude.ai",
-    "Gemini": "https://gemini.google.com"
-  };
   var PORTAL_ACTIVITY_PATTERN = /^https:\/\/portal\.trackmangolf\.com\/player\/activities\/([A-Za-z0-9+/=]+)$/;
   var PORTAL_ACTIVITIES_LIST_PATTERN = /^https:\/\/portal\.trackmangolf\.com\/player\/activities\/?$/;
   function isPortalAuthMessage(message) {
@@ -1627,11 +1379,11 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     }
     if (!value || typeof value !== "object") return false;
     const record = value;
-    if (record.measurement || record.Measurement || record.NormalizedMeasurement) {
+    if (record.measurement || record.Measurement || record.normalizedMeasurement || record.NormalizedMeasurement) {
       return true;
     }
     return Object.entries(record).some(([key, nested]) => {
-      if (key === "measurement" || key === "Measurement" || key === "NormalizedMeasurement") {
+      if (key === "measurement" || key === "Measurement" || key === "normalizedMeasurement" || key === "NormalizedMeasurement") {
         return false;
       }
       return responseContainsMeasurement(nested);
@@ -1762,6 +1514,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     const resumeBtn = document.getElementById("bulk-import-resume-btn");
     const retryBtn = document.getElementById("bulk-import-retry-btn");
     const exportBtn = document.getElementById("bulk-export-csv-btn");
+    const clearBtn = document.getElementById("bulk-clear-btn");
     const importAllBtn = document.getElementById("bulk-import-all-btn");
     if (progressEl) {
       if (job) {
@@ -1776,6 +1529,7 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     if (resumeBtn) resumeBtn.disabled = !job || job.state !== "paused" || bulkImportRunning;
     if (retryBtn) retryBtn.disabled = !job || job.failed === 0 || bulkImportRunning;
     if (exportBtn) exportBtn.disabled = !job || job.imported === 0;
+    if (clearBtn) clearBtn.disabled = !job || bulkImportRunning;
     if (importAllBtn) importAllBtn.disabled = cachedPortalActivities.length === 0 || bulkImportRunning;
     for (const activity of cachedPortalActivities) {
       const row = getActivityRow(activity.id);
@@ -2012,8 +1766,8 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
       void startNewBulkImport(tabId, activities);
     });
     topRow.append(selectLabel, importSelectedBtn, importAllBtn);
-    const bottomRow = document.createElement("div");
-    bottomRow.className = "bulk-import-row";
+    const actionRow = document.createElement("div");
+    actionRow.className = "bulk-import-row";
     const pauseBtn = document.createElement("button");
     pauseBtn.id = "bulk-import-pause-btn";
     pauseBtn.className = "bulk-action-btn";
@@ -2038,6 +1792,9 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     retryBtn.addEventListener("click", () => {
       void retryFailedBulkImport(tabId);
     });
+    actionRow.append(pauseBtn, resumeBtn, retryBtn);
+    const dataRow = document.createElement("div");
+    dataRow.className = "bulk-import-row";
     const exportBtn = document.createElement("button");
     exportBtn.id = "bulk-export-csv-btn";
     exportBtn.className = "bulk-action-btn";
@@ -2046,12 +1803,31 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     exportBtn.addEventListener("click", () => {
       void exportBulkImportedCsv();
     });
-    bottomRow.append(pauseBtn, resumeBtn, retryBtn, exportBtn);
+    const clearBtn = document.createElement("button");
+    clearBtn.id = "bulk-clear-btn";
+    clearBtn.className = "bulk-action-btn";
+    clearBtn.textContent = "Clear";
+    clearBtn.title = "Clear imported sessions";
+    clearBtn.disabled = true;
+    clearBtn.addEventListener("click", async () => {
+      if (bulkImportRunning) return;
+      if (activeBulkImportJob) {
+        await clearBulkImportedSessions(activeBulkImportJob.id).catch(() => void 0);
+      }
+      await chrome.storage.local.remove([
+        STORAGE_KEYS.BULK_IMPORT_STATUS,
+        STORAGE_KEYS.IMPORT_STATUS
+      ]);
+      activeBulkImportJob = null;
+      renderBulkImportJob(null);
+      showToast("Imported sessions cleared", "success");
+    });
+    dataRow.append(exportBtn, clearBtn);
     const progress = document.createElement("div");
     progress.id = "bulk-import-progress";
     progress.className = "bulk-import-progress";
     progress.style.display = "none";
-    controls.append(topRow, bottomRow, progress);
+    controls.append(topRow, actionRow, dataRow, progress);
     return controls;
   }
   function renderPortalActivityBrowser(activities, tabId) {
@@ -2186,65 +1962,6 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
     }
     contentEl.innerHTML = html;
   }
-  async function renderPromptSelect(select) {
-    const customPrompts = await loadCustomPrompts();
-    cachedCustomPrompts = customPrompts;
-    select.innerHTML = "";
-    if (customPrompts.length > 0) {
-      const myGroup = document.createElement("optgroup");
-      myGroup.label = "My Prompts";
-      for (const cp of customPrompts) {
-        const opt = document.createElement("option");
-        opt.value = cp.id;
-        opt.textContent = cp.name;
-        myGroup.appendChild(opt);
-      }
-      select.appendChild(myGroup);
-    }
-    const tiers = [
-      { label: "Beginner", value: "beginner" },
-      { label: "Intermediate", value: "intermediate" },
-      { label: "Advanced", value: "advanced" }
-    ];
-    for (const tier of tiers) {
-      const group = document.createElement("optgroup");
-      group.label = tier.label;
-      for (const p of BUILTIN_PROMPTS.filter((b) => b.tier === tier.value)) {
-        const opt = document.createElement("option");
-        opt.value = p.id;
-        opt.textContent = p.name;
-        group.appendChild(opt);
-      }
-      select.appendChild(group);
-    }
-  }
-  function findPromptById(id) {
-    const builtIn = BUILTIN_PROMPTS.find((p) => p.id === id);
-    if (builtIn) return builtIn;
-    return cachedCustomPrompts.find((p) => p.id === id);
-  }
-  function updatePreview() {
-    const previewEl = document.getElementById("prompt-preview-content");
-    const promptSelect = document.getElementById("prompt-select");
-    if (!previewEl || !promptSelect) return;
-    if (!cachedData) {
-      previewEl.textContent = "(No shot data captured yet)";
-      return;
-    }
-    const prompt = findPromptById(promptSelect.value);
-    if (!prompt) {
-      previewEl.textContent = "";
-      return;
-    }
-    const tsvData = writeTsv(cachedData, cachedUnitChoice, cachedSurface);
-    const metadata = {
-      date: cachedData.date,
-      shotCount: countSessionShots(cachedData),
-      unitLabel: buildUnitLabel(cachedUnitChoice),
-      hittingSurface: cachedSurface
-    };
-    previewEl.textContent = assemblePrompt(prompt, tsvData, metadata);
-  }
   function showImportStatus(status) {
     if (status.state === "success") {
       showToast("Session imported successfully", "success");
@@ -2292,57 +2009,35 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           chrome.storage.local.remove(STORAGE_KEYS.IMPORT_STATUS);
         }
       }
-      const unitResult = await new Promise((resolve) => {
-        chrome.storage.local.get([STORAGE_KEYS.SPEED_UNIT, STORAGE_KEYS.DISTANCE_UNIT, STORAGE_KEYS.HITTING_SURFACE, STORAGE_KEYS.INCLUDE_AVERAGES, "unitPreference"], resolve);
-      });
-      let speedUnit = unitResult[STORAGE_KEYS.SPEED_UNIT];
-      let distanceUnit = unitResult[STORAGE_KEYS.DISTANCE_UNIT];
-      if (!speedUnit || !distanceUnit) {
-        const migrated = migrateLegacyPref(unitResult["unitPreference"]);
-        speedUnit = migrated.speed;
-        distanceUnit = migrated.distance;
-        chrome.storage.local.set({
-          [STORAGE_KEYS.SPEED_UNIT]: speedUnit,
-          [STORAGE_KEYS.DISTANCE_UNIT]: distanceUnit
-        });
-        chrome.storage.local.remove("unitPreference");
-      }
       cachedUnitChoice = {
-        speed: speedUnit,
-        distance: distanceUnit
+        speed: "mph",
+        distance: "yards"
       };
-      const surface = unitResult[STORAGE_KEYS.HITTING_SURFACE] ?? "Mat";
-      cachedSurface = surface;
+      cachedSurface = "Mat";
+      chrome.storage.local.set({
+        [STORAGE_KEYS.SPEED_UNIT]: "mph",
+        [STORAGE_KEYS.DISTANCE_UNIT]: "yards",
+        [STORAGE_KEYS.HITTING_SURFACE]: "Mat"
+      });
+      chrome.storage.local.remove("unitPreference");
       const speedSelect = document.getElementById("speed-unit");
       const distanceSelect = document.getElementById("distance-unit");
+      const surfaceSelect = document.getElementById("surface-select");
       if (speedSelect) {
-        speedSelect.value = speedUnit;
-        speedSelect.addEventListener("change", () => {
-          chrome.storage.local.set({ [STORAGE_KEYS.SPEED_UNIT]: speedSelect.value });
-          cachedUnitChoice = { ...cachedUnitChoice, speed: speedSelect.value };
-          renderStatCard();
-        });
+        speedSelect.value = "mph";
       }
       if (distanceSelect) {
-        distanceSelect.value = distanceUnit;
-        distanceSelect.addEventListener("change", () => {
-          chrome.storage.local.set({ [STORAGE_KEYS.DISTANCE_UNIT]: distanceSelect.value });
-          cachedUnitChoice = { ...cachedUnitChoice, distance: distanceSelect.value };
-          renderStatCard();
-        });
+        distanceSelect.value = "yards";
       }
-      const surfaceSelect = document.getElementById("surface-select");
       if (surfaceSelect) {
-        surfaceSelect.value = surface;
-        surfaceSelect.addEventListener("change", () => {
-          chrome.storage.local.set({ [STORAGE_KEYS.HITTING_SURFACE]: surfaceSelect.value });
-          cachedSurface = surfaceSelect.value;
-        });
+        surfaceSelect.value = "Mat";
       }
       const includeAveragesCheckbox = document.getElementById("include-averages-checkbox");
       if (includeAveragesCheckbox) {
-        const stored = unitResult[STORAGE_KEYS.INCLUDE_AVERAGES];
-        includeAveragesCheckbox.checked = stored === void 0 ? true : Boolean(stored);
+        chrome.storage.local.get([STORAGE_KEYS.INCLUDE_AVERAGES], (result2) => {
+          const stored = result2[STORAGE_KEYS.INCLUDE_AVERAGES];
+          includeAveragesCheckbox.checked = stored === void 0 ? false : Boolean(stored);
+        });
         includeAveragesCheckbox.addEventListener("change", () => {
           chrome.storage.local.set({ [STORAGE_KEYS.INCLUDE_AVERAGES]: includeAveragesCheckbox.checked });
         });
@@ -2352,7 +2047,6 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           cachedData = message.data ?? null;
           updateShotCount(message.data);
           updateExportButtonVisibility(message.data);
-          updatePreview();
           renderStatCard();
         }
         if (message.type === "HISTORY_ERROR") {
@@ -2382,46 +2076,6 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
       if (clearBtn) {
         clearBtn.addEventListener("click", handleClearClick);
       }
-      const settingsBtn = document.getElementById("settings-btn");
-      if (settingsBtn) {
-        settingsBtn.addEventListener("click", () => {
-          chrome.runtime.openOptionsPage();
-        });
-      }
-      const promptSelect = document.getElementById("prompt-select");
-      if (promptSelect) {
-        await renderPromptSelect(promptSelect);
-        const promptResult = await new Promise((resolve) => {
-          chrome.storage.local.get([STORAGE_KEYS.SELECTED_PROMPT_ID], resolve);
-        });
-        const savedPromptId = promptResult[STORAGE_KEYS.SELECTED_PROMPT_ID];
-        if (savedPromptId) {
-          promptSelect.value = savedPromptId;
-          if (promptSelect.value !== savedPromptId) {
-            promptSelect.value = "quick-summary-beginner";
-            chrome.storage.local.set({ [STORAGE_KEYS.SELECTED_PROMPT_ID]: "quick-summary-beginner" });
-          }
-        }
-        promptSelect.addEventListener("change", () => {
-          chrome.storage.local.set({ [STORAGE_KEYS.SELECTED_PROMPT_ID]: promptSelect.value });
-          updatePreview();
-        });
-      }
-      const aiServiceSelect = document.getElementById("ai-service-select");
-      if (aiServiceSelect) {
-        const syncResult = await new Promise((resolve) => {
-          chrome.storage.sync.get([STORAGE_KEYS.AI_SERVICE], resolve);
-        });
-        const savedService = syncResult[STORAGE_KEYS.AI_SERVICE];
-        if (savedService) {
-          aiServiceSelect.value = savedService;
-        }
-        aiServiceSelect.addEventListener("change", () => {
-          chrome.storage.sync.set({ [STORAGE_KEYS.AI_SERVICE]: aiServiceSelect.value });
-          updatePreview();
-        });
-      }
-      updatePreview();
       renderStatCard();
       const portalGranted = await hasPortalPermission();
       if (portalGranted) {
@@ -2485,56 +2139,6 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
           }
         });
       }
-      const openAiBtn = document.getElementById("open-ai-btn");
-      if (openAiBtn) {
-        openAiBtn.addEventListener("click", async () => {
-          if (!cachedData || !promptSelect || !aiServiceSelect) return;
-          const selectedPromptId = promptSelect.value;
-          const selectedService = aiServiceSelect.value;
-          const prompt = findPromptById(selectedPromptId);
-          if (!prompt) return;
-          const tsvData = writeTsv(cachedData, cachedUnitChoice, cachedSurface);
-          const metadata = {
-            date: cachedData.date,
-            shotCount: countSessionShots(cachedData),
-            unitLabel: buildUnitLabel(cachedUnitChoice),
-            hittingSurface: cachedSurface
-          };
-          const assembled = assemblePrompt(prompt, tsvData, metadata);
-          try {
-            await navigator.clipboard.writeText(assembled);
-            chrome.tabs.create({ url: AI_URLS[selectedService] });
-            showToast(`Prompt + data copied. Paste it into ${selectedService}.`, "success");
-          } catch (err) {
-            console.error("AI launch failed:", err);
-            showToast("Failed to copy prompt", "error");
-          }
-        });
-      }
-      const copyPromptBtn = document.getElementById("copy-prompt-btn");
-      if (copyPromptBtn) {
-        copyPromptBtn.addEventListener("click", async () => {
-          if (!cachedData || !promptSelect) return;
-          const selectedPromptId = promptSelect.value;
-          const prompt = findPromptById(selectedPromptId);
-          if (!prompt) return;
-          const tsvData = writeTsv(cachedData, cachedUnitChoice, cachedSurface);
-          const metadata = {
-            date: cachedData.date,
-            shotCount: countSessionShots(cachedData),
-            unitLabel: buildUnitLabel(cachedUnitChoice),
-            hittingSurface: cachedSurface
-          };
-          const assembled = assemblePrompt(prompt, tsvData, metadata);
-          try {
-            await navigator.clipboard.writeText(assembled);
-            showToast("Prompt + data copied to clipboard.", "success");
-          } catch (err) {
-            console.error("Clipboard write failed:", err);
-            showToast("Failed to copy prompt", "error");
-          }
-        });
-      }
     } catch (error) {
       console.error("Error loading popup data:", error);
       showToast("Error loading shot count", "error");
@@ -2566,11 +2170,9 @@ Skip obvious mishits when picking the highlights. Keep it brief and encouraging.
   }
   function updateExportButtonVisibility(data) {
     const exportRow = document.getElementById("export-row");
-    const aiSection = document.getElementById("ai-section");
     const clearBtn = document.getElementById("clear-btn");
     const hasValidData = data && typeof data === "object" && data["club_groups"];
     if (exportRow) exportRow.style.display = hasValidData ? "flex" : "none";
-    if (aiSection) aiSection.style.display = hasValidData ? "block" : "none";
     if (clearBtn) clearBtn.style.display = hasValidData ? "block" : "none";
   }
   async function handleExportClick() {

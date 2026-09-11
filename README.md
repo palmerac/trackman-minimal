@@ -1,131 +1,103 @@
-# TrackPull
+# Trackman Minimal
 
-<p align="center">
-  <img src="TrackPuller.png" alt="TrackPull" width="300">
-</p>
+A streamlined, zero-bloat Chrome extension to capture and export Trackman golf shot data and portal sessions directly to CSV.
 
-[![Tests](https://github.com/criticalberne/TrackPull/actions/workflows/tests.yml/badge.svg)](https://github.com/criticalberne/TrackPull/actions/workflows/tests.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+> *Forked and adapted from [`criticalberne/TrackPull`](https://github.com/criticalberne/TrackPull) under the [MIT License](LICENSE).*
 
-Grab your Trackman data and actually do something with it. Export to CSV, paste into a spreadsheet, or copy a ready-to-paste prompt for ChatGPT/Claude/Gemini, all from one Chrome extension.
+---
 
-## What it does
+## What Makes this "Minimal"?
 
-- Opens a Trackman report? Data's already captured
-- **Import from Portal**: browse Course Play and Map My Bag sessions from portal.trackmangolf.com, including older activity history without report links
-- Export as CSV or copy tab-separated values straight into Google Sheets
-- Copy a ready-to-paste AI prompt, then open ChatGPT, Claude, or Gemini for manual paste
-- Preview the full prompt and data before copying it
-- 8 built-in prompts from beginner to advanced, plus custom templates you create
-- Pick your units (mph or m/s, yards or meters) and hitting surface (mat or grass)
-- Toggle averages on or off in exports, raw shots only when you want them
-- Dark mode that follows your system theme
+This fork is designed for golfers and analysts who want clean, fast CSV exports without unnecessary UI clutter, extra background overhead, or AI prompt tooling:
 
+1. **Club Face Impact Metrics (PR #12):**
+   - Incorporates the GraphQL stroke measurement improvements from [`criticalberne/TrackPull#12`](https://github.com/criticalberne/TrackPull/pull/12).
+   - Adds `impactOffset` and `impactHeight` (in mm) to portal queries so range sessions, shot analysis, combine tests, and virtual sessions include face contact location.
+2. **Locked Export Settings (Zero Clutter):**
+   - Automatically locked to standard units: **mph** (speed), **yards** (distance), and **Mat** (hitting surface).
+   - Removed redundant unit and surface dropdown selectors from the popup UI.
+3. **No Settings / Options Page:**
+   - Removed the separate options page (`options.html` / `options.js`) and popup gear icon, trimming ~80 KB of dead code and simplifying the extension lifecycle.
+4. **Single-Purpose CSV Export:**
+   - Removed the "Copy TSV" button and clipboard prompt-generation features. Focuses strictly on downloading clean, structured CSV files.
+5. **Bulk Import Clear Action:**
+   - Added a dedicated **Clear** button to the portal session importer to purge local bulk snapshots, reset activity row buttons back to "Import", and enable checkboxes for fresh exports.
 
-## Install
+---
 
-### Download the release (easiest)
+## Installation
 
-1. Download `production.zip` from the [latest release](https://github.com/criticalberne/TrackPull/releases/latest)
-2. Unzip it
-3. Go to `chrome://extensions` and enable **Developer Mode**
-4. Click **Load unpacked** and select the unzipped folder
+### Clone and Build
 
-### Clone and build
-
-1. Clone the repo:
+1. Clone the repository:
    ```bash
-   git clone https://github.com/criticalberne/TrackPull.git
-   cd TrackPull
+   git clone https://github.com/aaronpalmer/trackman-minimal.git
+   cd trackman-minimal
    ```
-2. Install dependencies and build:
+2. Install dependencies and build the extension:
    ```bash
    npm install
-   bash scripts/build-extension.sh
+   npm run build
    ```
-3. Go to `chrome://extensions` and enable **Developer Mode**
-4. Click **Load unpacked** and select the `dist/` folder
+3. In Google Chrome:
+   - Go to `chrome://extensions`
+   - Enable **Developer mode** (top-right toggle)
+   - Click **Load unpacked**
+   - Select the `dist/` directory inside this repository
+
+---
 
 ## Usage
 
-### From a Trackman report (automatic)
+### 1. From a Trackman Report (Automatic)
+1. Open any Trackman report URL (e.g. `web-dynamic-reports.trackmangolf.com/...`).
+2. The extension automatically intercepts the shot data in the background.
+3. Click the **Trackman Minimal** toolbar icon to view your shot count.
+4. Click **Export CSV** to download your session file.
 
-1. Open any Trackman report, the extension grabs your shot data automatically
-2. Click the TrackPull icon to see your shot count and set preferences
-3. Pick what you want to do:
-   - **Export CSV**: downloads a file with your data
-   - **Copy TSV**: pastes right into spreadsheets
-   - **Copy data & open AI**: copies the prompt and shot data to your clipboard, then opens ChatGPT, Claude, or Gemini for you to paste manually
-   - **Copy prompt + data**: copies the same ready-to-paste text without opening an AI site
-4. Expand **Prompt Preview** to inspect exactly what will be copied before you click
+### 2. From Trackman Portal Sessions (Bulk Export)
+1. Log into your account at [portal.trackmangolf.com](https://portal.trackmangolf.com).
+2. Open the extension popup and click **Grant Access** (one-time permission for portal access).
+3. Navigate to `portal.trackmangolf.com/player/activities`.
+4. Open the extension popup to view your recent sessions (Course Play, Virtual Range, Shot Analysis, Combine).
+5. Select specific sessions or click **Import all**.
+6. Click **Export CSV** to download a single, unified CSV file with all shots and sessions combined.
+7. Click **Clear** whenever you want to reset the imported state and clear stored session snapshots.
 
-Your hitting surface (mat/grass) is tagged in every export and prompt so the AI knows what it's working with. Uncheck "Include averages" if you just want raw shot rows.
+---
 
-<details>
-<summary>Supported Trackman URLs</summary>
+## Exported Columns
 
-```
-https://web-dynamic-reports.trackmangolf.com/reports?r=12345
-https://web-dynamic-reports.trackmangolf.com/activities?a=67890
-https://web-dynamic-reports.trackmangolf.com/reports?ReportId=11223
-```
-</details>
-
-### From the Trackman portal (Course Play and Map My Bag)
-
-Got old sessions on portal.trackmangolf.com that never got a report link? You can still pull them.
-
-1. Log into [portal.trackmangolf.com](https://portal.trackmangolf.com)
-2. Click **Grant Access** in the TrackPull popup (one-time)
-3. Go to `portal.trackmangolf.com/player/activities`
-4. Open TrackPull and use the **Course Play and Map My Bag sessions** list
-5. Click **Import** next to the session you want, then export CSV, copy TSV, or copy data and open an AI site for manual paste
-
-TrackPull filters the portal list to Course Play and Map My Bag sessions, shows the activity date, and shows the course name when Trackman provides it. The importer paginates through your supported portal history instead of only showing recent activity cards.
-
-For historical backfills, select multiple sessions and click **Import selected**, or click **Import all** for every supported session TrackPull found. Bulk import saves each completed session as it finishes, shows imported and failed counts, can pause and resume, and lets you retry only failed sessions. Use **Export CSV** in the bulk import panel to download one combined CSV with session date, report ID, activity type, club, shot number, and metrics.
-
-You can still import from an individual portal activity URL when one is available. The shot data loads into TrackPull just like a report. Export, copy, or copy data and open an AI site from there. Your data was never lost, just hard to get to.
-
-## CSV columns
-
-Columns are grouped so you can scan without hunting:
+The CSV export contains complete shot delivery, launch, distance, and impact data:
 
 | Group | Metrics |
 |---|---|
-| Speed & Efficiency | Club Speed, Ball Speed, Smash Factor |
-| Club Delivery | Attack Angle, Club Path, Face Angle, Face To Path, Swing Direction, Dynamic Loft |
-| Launch & Spin | Launch Angle, Launch Direction, Spin Rate, Spin Axis, Spin Loft |
-| Distance | Carry, Total |
-| Dispersion | Side, Side Total, Carry Side, Total Side, Curve |
-| Ball Flight | Height, Max Height, Landing Angle, Hang Time |
-| Impact | Low Point Distance (in/cm), Impact Height, Impact Offset |
-| Other | Tempo |
+| **Metadata** | Session Date, Report ID, Activity Type, Club, Shot #, Type |
+| **Speed & Efficiency** | Club Speed (mph), Ball Speed (mph), Smash Factor |
+| **Club Delivery** | Attack Angle (°), Club Path (°), Face Angle (°), Face To Path (°), Swing Direction, Dynamic Loft (°), Dynamic Lie (°), Swing Plane (°) |
+| **Launch & Spin** | Launch Angle (°), Launch Direction (°), Spin Rate (rpm), Spin Axis, Spin Loft |
+| **Distance & Flight** | Carry (yds), Total (yds), Carry Side (yds), Total Side (yds), Max Height (yds), Landing Angle (°), Hang Time (s) |
+| **Impact Location** | Impact Height (mm), Impact Offset (mm) |
 
-## AI prompts
+---
 
-Select a prompt from the popup and click **Copy data & open AI**. TrackPull copies the prompt and shot data to your clipboard, opens your chosen AI site, and leaves you in control of pasting it. You can also build your own templates in the options page; each custom template must include `{{DATA}}` where the shot data should go.
-
-### Beginner
-- [Understanding Your Numbers](prompts/beginner/understanding-your-numbers.md): what each metric means and how yours compare
-- [Basic Club Recommendations](prompts/beginner/basic-club-recommendations.md): what category of clubs fits your swing
-
-### Intermediate
-- [Distance Gapping](prompts/intermediate/distance-gapping.md): carry distance gaps and overlaps in your bag
-- [Shaft Flex Analysis](prompts/intermediate/shaft-flex-analysis.md): shaft flex and weight recs from your speed and launch data
-- [Shot Shape Tendencies](prompts/intermediate/shot-shape-tendencies.md): face angle, club path, and curvature patterns
-
-### Advanced
-- [Launch & Spin Optimization](prompts/advanced/launch-spin-optimization.md): your launch/spin vs optimal windows, with loft/shaft suggestions
-- [Club Delivery Analysis](prompts/advanced/club-delivery-analysis.md): attack angle, dynamic loft, and low point efficiency
-- [Full Bag Fitting](prompts/advanced/full-bag-fitting.md): the whole picture with specific club head, shaft, and setup recs
-
-## Development
+## Development & Testing
 
 ```bash
-# Build the extension
-bash scripts/build-extension.sh
+# Run Vitest test suite (338 tests)
+npm test
 
-# Create a release zip
-bash scripts/build-zip.sh
+# Run TypeScript typecheck
+npm run typecheck
+
+# Build bundle into dist/
+npm run build
 ```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+- Original work Copyright (c) 2026 criticalberne
+- Modifications Copyright (c) 2026 Aaron Palmer

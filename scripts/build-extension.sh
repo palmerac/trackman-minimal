@@ -83,7 +83,6 @@ ENTRY_POINTS=(
     "src/content/portal_page_fetch.ts:portal_page_fetch.js"
     "src/content/portal_fetch.ts:portal_fetch.js"
     "src/popup/popup.ts:popup.js"
-    "src/options/options.ts:options.js"
 )
 
 for entry in "${ENTRY_POINTS[@]}"; do
@@ -99,13 +98,12 @@ if compgen -G "src/icons/*.png" > /dev/null; then
 fi
 
 copy_required_file "src/popup/popup.html" "$DIST_DIR/popup.html" "popup HTML"
-copy_required_file "src/options/options.html" "$DIST_DIR/options.html" "options HTML"
 
 echo "Validating manifest-required assets..."
 validate_manifest_assets
 
 echo "Validating HTML references bundled JS..."
-for html_file in popup.html options.html; do
+for html_file in popup.html; do
   if grep -q '\.ts"' "$DIST_DIR/$html_file"; then
     echo "Error: $html_file references .ts files, must reference .js bundles only" >&2
     exit 1

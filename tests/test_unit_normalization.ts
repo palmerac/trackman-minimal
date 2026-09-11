@@ -334,6 +334,8 @@ describe("Metric Category Classification", () => {
     expect("ClubPath" in ANGLE_METRICS).toBeTruthy();
     expect("FaceAngle" in ANGLE_METRICS).toBeTruthy();
     expect("DynamicLoft" in ANGLE_METRICS).toBeTruthy();
+    expect("DynamicLie" in ANGLE_METRICS).toBeTruthy();
+    expect("SwingPlane" in ANGLE_METRICS).toBeTruthy();
   });
 
   it("correctly classifies speed metrics", () => {

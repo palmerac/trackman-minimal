@@ -118,7 +118,7 @@
   var FETCH_ACTIVITIES_QUERY = `
   query GetPlayerActivities($skip: Int!, $take: Int!) {
     me {
-      activities(kinds: [COURSE_PLAY, MAP_MY_BAG], skip: $skip, take: $take) {
+      activities(kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST], skip: $skip, take: $take) {
         totalCount
         pageInfo {
           hasNextPage
@@ -248,7 +248,7 @@
   clubSpeed ballSpeed smashFactor attackAngle clubPath faceAngle
   faceToPath swingDirection swingPlane dynamicLoft spinRate spinAxis spinLoft
   launchAngle launchDirection carry total carrySide totalSide
-  maxHeight landingAngle hangTime
+  maxHeight landingAngle hangTime impactOffset impactHeight
 `;
   var SCORECARD_SHOT_MEASUREMENT_FIELDS = `
   ballSpeed carrySideActual carryActual launchDirection maxHeight carry total
@@ -274,10 +274,10 @@
         id time strokeCount strokes { ${STROKE_FIELDS} }
       }
       ... on VirtualRangeSessionActivity {
-        id time strokeCount strokes { ${STROKE_FIELDS} }
+        id time strokes { ${STROKE_FIELDS} }
       }
       ... on ShotAnalysisSessionActivity {
-        id time strokeCount strokes { ${STROKE_FIELDS} }
+        id time strokes { ${STROKE_FIELDS} }
       }
       ... on CombineTestActivity {
         id time strokes { ${STROKE_FIELDS} }

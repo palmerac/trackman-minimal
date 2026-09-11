@@ -35,6 +35,7 @@ export interface GraphQLStroke {
   isSimulated?: boolean | null;
   measurement?: StrokeMeasurement | null;
   Measurement?: StrokeMeasurement | null;
+  normalizedMeasurement?: StrokeMeasurement | null;
   NormalizedMeasurement?: StrokeMeasurement | null;
   [key: string]: unknown;
 }
@@ -104,9 +105,11 @@ function getContainerClubName(container: Record<string, unknown>): string | null
 }
 
 function getStrokeMeasurement(stroke: Record<string, unknown>): StrokeMeasurement | null {
-  const normalized = isRecord(stroke.NormalizedMeasurement)
-    ? stroke.NormalizedMeasurement
-    : null;
+  const normalized = isRecord(stroke.normalizedMeasurement)
+    ? stroke.normalizedMeasurement
+    : isRecord(stroke.NormalizedMeasurement)
+      ? stroke.NormalizedMeasurement
+      : null;
   const measurement = isRecord(stroke.measurement)
     ? stroke.measurement
     : isRecord(stroke.Measurement)
@@ -177,7 +180,12 @@ function collectStrokes(
   }
 
   for (const [key, nested] of Object.entries(value)) {
-    if (key === "measurement" || key === "Measurement" || key === "NormalizedMeasurement") {
+    if (
+      key === "measurement" ||
+      key === "Measurement" ||
+      key === "normalizedMeasurement" ||
+      key === "NormalizedMeasurement"
+    ) {
       continue;
     }
     if (Array.isArray(nested) || isRecord(nested)) {

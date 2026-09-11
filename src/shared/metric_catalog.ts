@@ -4,7 +4,7 @@ export const METRIC_COLUMN_ORDER = [
   // Speed & Efficiency
   "ClubSpeed", "BallSpeed", "SmashFactor",
   // Club Delivery
-  "AttackAngle", "ClubPath", "FaceAngle", "FaceToPath", "SwingDirection", "DynamicLoft",
+  "AttackAngle", "ClubPath", "FaceAngle", "FaceToPath", "SwingDirection", "DynamicLoft", "DynamicLie", "SwingPlane",
   // Launch & Spin
   "LaunchAngle", "LaunchDirection", "SpinRate", "SpinAxis", "SpinLoft",
   // Distance
@@ -30,6 +30,8 @@ export const METRIC_DISPLAY_NAMES: Record<string, string> = {
   FaceToPath: "Face To Path",
   SwingDirection: "Swing Direction",
   DynamicLoft: "Dynamic Loft",
+  DynamicLie: "Dynamic Lie",
+  SwingPlane: "Swing Plane",
   SpinRate: "Spin Rate",
   SpinAxis: "Spin Axis",
   SpinLoft: "Spin Loft",
@@ -69,6 +71,7 @@ export const GRAPHQL_METRIC_ALIAS: Record<string, string> = {
   swingDirection: "SwingDirection",
   swingPlane: "SwingPlane",
   dynamicLoft: "DynamicLoft",
+  dynamicLie: "DynamicLie",
   spinRate: "SpinRate",
   ballSpin: "SpinRate",
   spinAxis: "SpinAxis",
@@ -119,6 +122,8 @@ export const ANGLE_METRICS: Record<string, true> = {
   FaceAngle: true,
   FaceToPath: true,
   DynamicLoft: true,
+  DynamicLie: true,
+  SwingPlane: true,
   LaunchAngle: true,
   LaunchDirection: true,
   LandingAngle: true,

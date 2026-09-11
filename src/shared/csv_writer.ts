@@ -90,7 +90,7 @@ function createCsvLines(
 
 export function writeCsv(
   session: SessionData,
-  includeAverages = true,
+  includeAverages = false,
   metricOrder?: string[],
   unitChoice: UnitChoice = DEFAULT_UNIT_CHOICE,
   hittingSurface?: "Grass" | "Mat"
@@ -200,7 +200,7 @@ export function writeCsv(
 
 export function writeBulkCsv(
   sessions: SessionData[],
-  includeAverages = true,
+  includeAverages = false,
   metricOrder?: string[],
   unitChoice: UnitChoice = DEFAULT_UNIT_CHOICE,
   hittingSurface?: "Grass" | "Mat"

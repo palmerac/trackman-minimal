@@ -288,13 +288,13 @@
     }
 
     /* Section dividers */
-    .ai-section {
+    .section-divider {
       margin-top: 20px;
       padding-top: 16px;
       border-top: 1px solid var(--color-border);
     }
 
-    .ai-section h2 {
+    .section-divider h2 {
       font-size: 15px;
       font-weight: 600;
       color: var(--color-text-primary);
@@ -329,48 +329,6 @@
       cursor: not-allowed;
     }
 
-    /* AI controls: prompt and service dropdowns */
-    .ai-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .ai-group {
-      width: 100%;
-    }
-
-    .ai-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--color-text-muted);
-      margin-bottom: 4px;
-    }
-
-    .ai-group select {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid var(--color-accent);
-      border-radius: 6px;
-      background: var(--color-bg-card);
-      color: var(--color-text-body);
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    .ai-group select:focus {
-      outline: 2px solid var(--color-accent);
-      outline-offset: -1px;
-    }
-
-    /* AI action buttons */
-    .ai-actions {
-      display: flex;
-      gap: 8px;
-    }
-
     .btn-primary {
       flex: 1;
       min-width: 0;
@@ -388,77 +346,10 @@
       background-color: var(--color-accent-hover);
     }
 
-    .btn-outline {
-      flex: 1;
-      min-width: 0;
-      padding: 12px;
-      color: var(--color-accent);
-      background-color: transparent;
-      border: 2px solid var(--color-accent);
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    .btn-outline:hover {
-      background-color: var(--color-accent-light);
-    }
-
-    .ai-helper-text {
-      margin: 8px 0 0 0;
-      font-size: 12px;
-      line-height: 1.4;
-      color: var(--color-text-muted);
-    }
-
-    /* Prompt preview disclosure widget */
-    details#prompt-preview {
-      margin-top: 10px;
-    }
-
-    details#prompt-preview > summary {
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--color-text-muted);
-      padding: 4px 0;
-      user-select: none;
-    }
-
-    #prompt-preview-content {
-      max-height: 180px;
-      overflow-y: auto;
-      font-size: 11px;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: var(--color-bg-subtle);
-      color: var(--color-text-body);
-      border: 1px solid var(--color-border);
-      border-radius: 4px;
-      padding: 8px;
-      margin: 6px 0 0 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-
     .header-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-    .icon-btn {
-      background: none;
-      border: none;
-      font-size: 20px;
-      color: var(--color-text-muted);
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .icon-btn:hover {
-      background-color: var(--color-icon-hover-bg);
-      color: var(--color-accent);
     }
 
     /* Stat card */
@@ -708,10 +599,7 @@
 </head>
 <body>
   <div class="header-row">
-    <h1>TrackPull</h1>
-    <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">
-      &#9881;
-    </button>
+    <h1>Trackman Minimal</h1>
   </div>
   <div id="shot-count-container">
     <h2 id="shot-count-heading">Shot Count</h2>
@@ -725,7 +613,7 @@
     <summary>Session Stats</summary>
     <div id="stat-card-content"></div>
   </details>
-  <div class="unit-selectors">
+  <div class="unit-selectors" style="display:none;">
     <div class="unit-group">
       <label for="speed-unit">Speed</label>
       <select id="speed-unit">
@@ -751,41 +639,14 @@
   <div class="toggle-row">
     <label>
       <input type="checkbox" id="include-averages-checkbox">
-      Include averages and consistency in export
+      Include averages in export
     </label>
   </div>
   <div id="export-row" class="export-row" style="display:none;">
     <button id="export-btn">Export CSV</button>
-    <button id="copy-tsv-btn">Copy TSV</button>
-  </div>
-  <div id="ai-section" class="ai-section" style="display:none;">
-    <h2>AI Analysis</h2>
-    <div class="ai-controls">
-      <div class="ai-group">
-        <label for="prompt-select">Prompt</label>
-        <select id="prompt-select"></select>
-      </div>
-      <div class="ai-group">
-        <label for="ai-service-select">AI Service</label>
-        <select id="ai-service-select">
-          <option value="ChatGPT">ChatGPT</option>
-          <option value="Claude">Claude</option>
-          <option value="Gemini">Gemini</option>
-        </select>
-      </div>
-    </div>
-    <div class="ai-actions">
-      <button id="open-ai-btn" class="btn-primary">Copy data &amp; open AI</button>
-      <button id="copy-prompt-btn" class="btn-outline">Copy prompt + data</button>
-    </div>
-    <p class="ai-helper-text">TrackPull copies the prompt and shot data to your clipboard, then opens the AI site. Paste it manually; nothing is sent automatically.</p>
-    <details id="prompt-preview">
-      <summary>Preview prompt</summary>
-      <pre id="prompt-preview-content"></pre>
-    </details>
   </div>
   <!-- Portal Import section — per D-03, D-04: always rendered, visibility controlled by JS -->
-  <div id="portal-section" class="ai-section" style="display:none;">
+  <div id="portal-section" class="section-divider" style="display:none;">
     <h2>Import from Portal</h2>
     <!-- Shown when permission not yet granted (D-03, D-04) -->
     <div id="portal-denied" style="display:none;">
@@ -821,7 +682,7 @@
       </div>
       <div id="portal-activity-browser" style="display:none;">
         <p style="font-size:13px; color:var(--color-text-body); margin:0 0 8px 0;">
-          Course Play and Map My Bag sessions
+          Trackman Portal Sessions
         </p>
         <div id="portal-activity-list" class="activity-list-container"></div>
       </div>
