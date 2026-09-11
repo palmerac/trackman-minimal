@@ -135,7 +135,7 @@ describe("import_types module", () => {
 
   it("FETCH_ACTIVITIES_QUERY filters and paginates supported activity kinds", () => {
     expect(FETCH_ACTIVITIES_QUERY).toContain(
-      "kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST]"
+      "kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST, VIRTUAL_GOLF, FIND_MY_DISTANCE]"
     );
     expect(FETCH_ACTIVITIES_QUERY).toContain("skip: $skip");
     expect(FETCH_ACTIVITIES_QUERY).toContain("take: $take");
