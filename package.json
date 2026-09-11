@@ -1,6 +1,6 @@
 {
   "name": "trackman-minimal",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Minimal, fast Chrome extension to export Trackman shot data to CSV",
   "main": "index.js",
   "directories": {
