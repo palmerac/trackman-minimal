@@ -1483,8 +1483,7 @@
     return cachedPortalActivities.filter((activity) => selectedIds.has(activity.id));
   }
   function getIncludeAveragesChoice() {
-    const checkbox = document.getElementById("include-averages-checkbox");
-    return checkbox?.checked ?? true;
+    return false;
   }
   function getSafeBulkFilename() {
     const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -1510,8 +1509,6 @@
   function renderBulkImportJob(job = activeBulkImportJob) {
     activeBulkImportJob = job;
     const progressEl = document.getElementById("bulk-import-progress");
-    const pauseBtn = document.getElementById("bulk-import-pause-btn");
-    const resumeBtn = document.getElementById("bulk-import-resume-btn");
     const retryBtn = document.getElementById("bulk-import-retry-btn");
     const exportBtn = document.getElementById("bulk-export-csv-btn");
     const clearBtn = document.getElementById("bulk-clear-btn");
@@ -1525,9 +1522,16 @@
         progressEl.style.display = "none";
       }
     }
-    if (pauseBtn) pauseBtn.disabled = !job || job.state !== "running" || !bulkImportRunning;
-    if (resumeBtn) resumeBtn.disabled = !job || job.state !== "paused" || bulkImportRunning;
-    if (retryBtn) retryBtn.disabled = !job || job.failed === 0 || bulkImportRunning;
+    if (retryBtn) {
+      const hasFailed = Boolean(job && job.failed > 0);
+      retryBtn.style.display = hasFailed ? "" : "none";
+      retryBtn.disabled = !hasFailed || bulkImportRunning;
+      if (hasFailed && job) {
+        retryBtn.textContent = `Retry (${job.failed} failed)`;
+      } else {
+        retryBtn.textContent = "Retry failed";
+      }
+    }
     if (exportBtn) exportBtn.disabled = !job || job.imported === 0;
     if (clearBtn) clearBtn.disabled = !job || bulkImportRunning;
     if (importAllBtn) importAllBtn.disabled = cachedPortalActivities.length === 0 || bulkImportRunning;
@@ -1674,10 +1678,6 @@
     await clearBulkImportedSessions(job.id).catch(() => void 0);
     await runBulkImportJob(tabId, job);
   }
-  async function resumeBulkImport(tabId) {
-    if (!activeBulkImportJob || bulkImportRunning) return;
-    await runBulkImportJob(tabId, activeBulkImportJob);
-  }
   async function retryFailedBulkImport(tabId) {
     if (!activeBulkImportJob || bulkImportRunning) return;
     const retryJob = resetFailedBulkImportItems(activeBulkImportJob);
@@ -1768,33 +1768,6 @@
     topRow.append(selectLabel, importSelectedBtn, importAllBtn);
     const actionRow = document.createElement("div");
     actionRow.className = "bulk-import-row";
-    const pauseBtn = document.createElement("button");
-    pauseBtn.id = "bulk-import-pause-btn";
-    pauseBtn.className = "bulk-action-btn";
-    pauseBtn.textContent = "Pause";
-    pauseBtn.disabled = true;
-    pauseBtn.addEventListener("click", () => {
-      bulkImportPauseRequested = true;
-    });
-    const resumeBtn = document.createElement("button");
-    resumeBtn.id = "bulk-import-resume-btn";
-    resumeBtn.className = "bulk-action-btn";
-    resumeBtn.textContent = "Resume";
-    resumeBtn.disabled = true;
-    resumeBtn.addEventListener("click", () => {
-      void resumeBulkImport(tabId);
-    });
-    const retryBtn = document.createElement("button");
-    retryBtn.id = "bulk-import-retry-btn";
-    retryBtn.className = "bulk-action-btn";
-    retryBtn.textContent = "Retry failed";
-    retryBtn.disabled = true;
-    retryBtn.addEventListener("click", () => {
-      void retryFailedBulkImport(tabId);
-    });
-    actionRow.append(pauseBtn, resumeBtn, retryBtn);
-    const dataRow = document.createElement("div");
-    dataRow.className = "bulk-import-row";
     const exportBtn = document.createElement("button");
     exportBtn.id = "bulk-export-csv-btn";
     exportBtn.className = "bulk-action-btn";
@@ -1822,12 +1795,21 @@
       renderBulkImportJob(null);
       showToast("Imported sessions cleared", "success");
     });
-    dataRow.append(exportBtn, clearBtn);
+    const retryBtn = document.createElement("button");
+    retryBtn.id = "bulk-import-retry-btn";
+    retryBtn.className = "bulk-action-btn";
+    retryBtn.textContent = "Retry failed";
+    retryBtn.style.display = "none";
+    retryBtn.disabled = true;
+    retryBtn.addEventListener("click", () => {
+      void retryFailedBulkImport(tabId);
+    });
+    actionRow.append(exportBtn, clearBtn, retryBtn);
     const progress = document.createElement("div");
     progress.id = "bulk-import-progress";
     progress.className = "bulk-import-progress";
     progress.style.display = "none";
-    controls.append(topRow, actionRow, dataRow, progress);
+    controls.append(topRow, actionRow, progress);
     return controls;
   }
   function renderPortalActivityBrowser(activities, tabId) {
@@ -1887,11 +1869,13 @@
     const detected = document.getElementById("portal-activity-detected");
     const noActivity = document.getElementById("portal-no-activity");
     const browser = document.getElementById("portal-activity-browser");
+    const shotCountContainer = document.getElementById("shot-count-container");
     if (!detected || !noActivity) return;
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const match = tab?.url?.match(PORTAL_ACTIVITY_PATTERN);
       if (match && tab.id) {
+        if (shotCountContainer) shotCountContainer.style.display = "";
         const activityId = match[1];
         const tabId = tab.id;
         detected.style.display = "";
@@ -1904,6 +1888,7 @@
           });
         }
       } else if (tab?.url?.match(PORTAL_ACTIVITIES_LIST_PATTERN) && tab.id) {
+        if (shotCountContainer) shotCountContainer.style.display = "none";
         detected.style.display = "none";
         noActivity.style.display = "none";
         if (browser) {
@@ -1914,11 +1899,13 @@
         const activities = await fetchPortalActivities(tab.id);
         renderPortalActivityBrowser(activities, tab.id);
       } else {
+        if (shotCountContainer) shotCountContainer.style.display = "";
         detected.style.display = "none";
         noActivity.style.display = "";
         if (browser) browser.style.display = "none";
       }
     } catch (err) {
+      if (shotCountContainer) shotCountContainer.style.display = "";
       const message = err instanceof Error && err.message ? err.message : "Unable to fetch activities";
       const formattedMessage = formatPortalFetchError(message);
       detected.style.display = "none";
@@ -2032,15 +2019,10 @@
       if (surfaceSelect) {
         surfaceSelect.value = "Mat";
       }
+      await chrome.storage.local.set({ [STORAGE_KEYS.INCLUDE_AVERAGES]: false });
       const includeAveragesCheckbox = document.getElementById("include-averages-checkbox");
       if (includeAveragesCheckbox) {
-        chrome.storage.local.get([STORAGE_KEYS.INCLUDE_AVERAGES], (result2) => {
-          const stored = result2[STORAGE_KEYS.INCLUDE_AVERAGES];
-          includeAveragesCheckbox.checked = stored === void 0 ? false : Boolean(stored);
-        });
-        includeAveragesCheckbox.addEventListener("change", () => {
-          chrome.storage.local.set({ [STORAGE_KEYS.INCLUDE_AVERAGES]: includeAveragesCheckbox.checked });
-        });
+        includeAveragesCheckbox.checked = false;
       }
       chrome.runtime.onMessage.addListener((message) => {
         if (message.type === "DATA_UPDATED") {
