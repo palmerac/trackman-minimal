@@ -78,7 +78,7 @@ const ACTIVITY_MINIMAL_DATE_FIELDS = `
 export const FETCH_ACTIVITIES_QUERY = `
   query GetPlayerActivities($skip: Int!, $take: Int!) {
     me {
-      activities(kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST], skip: $skip, take: $take) {
+      activities(kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST, VIRTUAL_GOLF, FIND_MY_DISTANCE], skip: $skip, take: $take) {
         totalCount
         pageInfo {
           hasNextPage
