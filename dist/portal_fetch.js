@@ -130,7 +130,7 @@
   var FETCH_ACTIVITIES_QUERY = `
   query GetPlayerActivities($skip: Int!, $take: Int!) {
     me {
-      activities(kinds: [COURSE_PLAY, MAP_MY_BAG], skip: $skip, take: $take) {
+      activities(kinds: [COURSE_PLAY, MAP_MY_BAG, VIRTUAL_RANGE, SHOT_ANALYSIS, COMBINE_TEST], skip: $skip, take: $take) {
         totalCount
         pageInfo {
           hasNextPage
@@ -286,10 +286,10 @@
         id time strokeCount strokes { ${STROKE_FIELDS} }
       }
       ... on VirtualRangeSessionActivity {
-        id time strokeCount strokes { ${STROKE_FIELDS} }
+        id time strokes { ${STROKE_FIELDS} }
       }
       ... on ShotAnalysisSessionActivity {
-        id time strokeCount strokes { ${STROKE_FIELDS} }
+        id time strokes { ${STROKE_FIELDS} }
       }
       ... on CombineTestActivity {
         id time strokes { ${STROKE_FIELDS} }
