@@ -30,7 +30,17 @@ This fork is built for golfers and analysts who want clean, fast CSV exports of 
 
 ## Installation
 
-### Clone and Build
+### Download the Release (Easiest — for normal users)
+
+1. Download **[`production.zip`](https://github.com/palmerac/trackman-minimal/releases/latest/download/production.zip)** from the [Latest Release](https://github.com/palmerac/trackman-minimal/releases/latest).
+2. Unzip the file into a folder on your computer.
+3. In Google Chrome:
+   - Go to `chrome://extensions`
+   - Turn on **Developer mode** (top-right toggle)
+   - Click **Load unpacked** (top-left button)
+   - Select the unzipped folder
+
+### Or Clone and Build (Developers)
 
 1. Clone the repository:
    ```bash
